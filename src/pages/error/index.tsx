@@ -53,7 +53,7 @@ const ErrorPage: FC = () => {
             color: "text.secondary",
           }}
         >
-          Material Admin <span style={{ fontWeight: 200 }}>LTE</span>
+          SIM Dashboard
         </Typography>
         <Typography
           variant="h1"

@@ -11,6 +11,8 @@ import {
   Stack,
   Typography,
   ListItemButton,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material';
 import { IconAlertTriangle, IconExternalLink } from '@tabler/icons-react';
 import { FC, useState } from 'react';
@@ -45,6 +47,8 @@ export const UsageAlertModal: FC<UsageAlertModalProps> = ({
   criticalColor,
 }) => {
   const navigate = useNavigate();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [selectedIccid, setSelectedIccid] = useState<string | null>(null);
 
   const getAlertColor = (usagePercent: string): string => {
@@ -87,21 +91,22 @@ export const UsageAlertModal: FC<UsageAlertModalProps> = ({
       onClose={onClose}
       maxWidth="md"
       fullWidth
+      fullScreen={isMobile}
       PaperProps={{
         sx: {
           borderTop: `4px solid ${criticalAlerts.length > 0 ? criticalColor : warningColor}`,
         },
       }}
     >
-      <DialogTitle>
-        <Stack direction="row" spacing={2} alignItems="center">
+      <DialogTitle sx={{ pb: { xs: 1, sm: 2 } }}>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ xs: 'flex-start', sm: 'center' }}>
           <IconAlertTriangle
-            size={28}
+            size={isMobile ? 24 : 28}
             color={criticalAlerts.length > 0 ? criticalColor : warningColor}
           />
           <Box>
-            <Typography variant="h6">SIM Usage Alerts</Typography>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="h6" sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>SIM Usage Alerts</Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
               {alerts.length} SIM card{alerts.length !== 1 ? 's' : ''} exceeded
               usage threshold
             </Typography>
@@ -109,7 +114,7 @@ export const UsageAlertModal: FC<UsageAlertModalProps> = ({
         </Stack>
       </DialogTitle>
 
-      <DialogContent dividers sx={{ maxHeight: 400, p: 0 }}>
+      <DialogContent dividers sx={{ maxHeight: { xs: '60vh', sm: 400 }, p: 0 }}>
         {criticalAlerts.length > 0 && (
           <Box sx={{ px: 2, py: 1.5, bgcolor: 'background.default' }}>
             <Typography variant="subtitle2" fontWeight="bold">

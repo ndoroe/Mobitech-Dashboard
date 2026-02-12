@@ -498,16 +498,16 @@ const ReportsPage: FC = () => {
           {/* Dynamic Report Results */}
           <Grid item xs={12}>
             {reportData.length > 0 ? (
-              <Paper sx={{ p: 2 }}>
-                <Typography variant="h6" gutterBottom>
+              <Paper sx={{ p: { xs: 1, sm: 2 } }}>
+                <Typography variant="h6" gutterBottom sx={{ fontSize: { xs: '1rem', sm: '1.25rem' }, px: 1 }}>
                   Report Results ({reportData.length} records)
                 </Typography>
-                <TableContainer sx={{ maxHeight: 500 }}>
-                  <Table stickyHeader size="small">
+                <TableContainer sx={{ maxHeight: 500, overflowX: 'auto' }}>
+                  <Table stickyHeader size="small" sx={{ minWidth: { xs: 600, sm: 'auto' } }}>
                     <TableHead>
                       <TableRow>
                         {Object.keys(reportData[0]).map((key) => (
-                          <TableCell key={key}>
+                          <TableCell key={key} sx={{ whiteSpace: 'nowrap', fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
                             <strong>{key}</strong>
                           </TableCell>
                         ))}
@@ -517,7 +517,7 @@ const ReportsPage: FC = () => {
                       {reportData.map((row, idx) => (
                         <TableRow key={idx} hover>
                           {Object.entries(row).map(([key, value]: [string, any], cellIdx) => (
-                            <TableCell key={cellIdx}>
+                            <TableCell key={cellIdx} sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>
                               {value instanceof Date 
                                 ? value.toLocaleString() 
                                 : typeof value === 'number' && !key.includes('Count')
@@ -603,31 +603,31 @@ const ReportsPage: FC = () => {
           {/* Alerts Table */}
           <Grid item xs={12} md={8}>
             {alerts.length > 0 ? (
-              <Paper sx={{ p: 2 }}>
-                <Typography variant="h6" gutterBottom color="error">
+              <Paper sx={{ p: { xs: 1, sm: 2 } }}>
+                <Typography variant="h6" gutterBottom color="error" sx={{ fontSize: { xs: '1rem', sm: '1.25rem' }, px: 1 }}>
                   Active Alerts
                 </Typography>
-                <TableContainer sx={{ maxHeight: 500 }}>
-                  <Table stickyHeader>
+                <TableContainer sx={{ maxHeight: 500, overflowX: 'auto' }}>
+                  <Table stickyHeader sx={{ minWidth: { xs: 700, sm: 'auto' } }}>
                     <TableHead>
                       <TableRow>
-                        <TableCell>ICCID</TableCell>
-                        <TableCell>MSISDN</TableCell>
-                        <TableCell align="right">Used (MB)</TableCell>
-                        <TableCell align="right">Capacity (MB)</TableCell>
-                        <TableCell align="right">Usage %</TableCell>
-                        <TableCell>Last Connection</TableCell>
+                        <TableCell sx={{ whiteSpace: 'nowrap', fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>ICCID</TableCell>
+                        <TableCell sx={{ whiteSpace: 'nowrap', fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>MSISDN</TableCell>
+                        <TableCell align="right" sx={{ whiteSpace: 'nowrap', fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>Used (MB)</TableCell>
+                        <TableCell align="right" sx={{ whiteSpace: 'nowrap', fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>Capacity (MB)</TableCell>
+                        <TableCell align="right" sx={{ whiteSpace: 'nowrap', fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>Usage %</TableCell>
+                        <TableCell sx={{ whiteSpace: 'nowrap', fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>Last Connection</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
                       {alerts.map((alert) => (
                         <TableRow key={alert.iccid} hover>
-                          <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.85rem' }}>
+                          <TableCell sx={{ fontFamily: 'monospace', fontSize: { xs: '0.7rem', sm: '0.85rem' } }}>
                             {alert.iccid}
                           </TableCell>
-                          <TableCell>{alert.msisdn}</TableCell>
-                          <TableCell align="right">{alert.dataUsed}</TableCell>
-                          <TableCell align="right">{alert.dataSize}</TableCell>
+                          <TableCell sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>{alert.msisdn}</TableCell>
+                          <TableCell align="right" sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>{alert.dataUsed}</TableCell>
+                          <TableCell align="right" sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>{alert.dataSize}</TableCell>
                           <TableCell align="right">
                             <Chip
                               label={`${parseFloat(alert.usagePercent).toFixed(1)}%`}
@@ -635,7 +635,7 @@ const ReportsPage: FC = () => {
                               color="error"
                             />
                           </TableCell>
-                          <TableCell>
+                          <TableCell sx={{ fontSize: { xs: '0.65rem', sm: '0.875rem' } }}>
                             {alert.lastConnection
                               ? new Date(alert.lastConnection).toLocaleString()
                               : 'N/A'}

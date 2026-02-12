@@ -13,20 +13,13 @@ import {
 } from "@mui/material";
 import {
   IconAlertTriangle,
-  IconMail,
   IconMenu2,
-  IconReport,
-  IconStarFilled,
-  IconUsers,
 } from "@tabler/icons-react";
-import { FC, useEffect, useState } from "react";
+import { FC, ReactNode, useEffect, useState } from "react";
 import { To, useNavigate } from "react-router-dom";
-import { BASE_NAME } from "../../App";
 import { FullscreenButton } from "../FullscreenButton";
 import { drawerWidth } from "./AppLayout";
-import { Messages, TMessage } from "./Messages";
-import { Notifications, TNotification } from "./Notifications";
-import { SearchBox } from "./SearchBox";
+import { Notifications } from "./Notifications";
 import { UserMenu } from "./UserMenu";
 import { notificationService } from "../../services/notifications";
 
@@ -35,9 +28,16 @@ type TTopNav = {
   link?: To;
 };
 
+type TNotification = {
+  icon: ReactNode;
+  count: number;
+  text: string;
+  lastUpdated: string;
+  onClick?: () => void;
+};
+
 const pages: TTopNav[] = [
   { label: "Home", link: "/" },
-  { label: "Contact", link: "/contact" },
 ];
 
 interface DesktopAppBarProps extends AppBarProps {
@@ -85,7 +85,6 @@ export const AppHeader: FC<Props> = ({
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const navigate = useNavigate();
-  const basename = BASE_NAME || "";
 
   // State for dynamic notifications
   const [notifications, setNotifications] = useState<TNotification[]>([]);
@@ -117,23 +116,6 @@ export const AppHeader: FC<Props> = ({
         });
       }
       
-      // You can add other notification types here
-      // For now, keeping the demo notifications as placeholders
-      notificationList.push(
-        {
-          icon: <IconMail size={20} />,
-          count: 4,
-          text: "new messages",
-          lastUpdated: "3 mins",
-        },
-        {
-          icon: <IconUsers size={20} />,
-          count: 8,
-          text: "friend requests",
-          lastUpdated: "12 hours",
-        }
-      );
-      
       setNotifications(notificationList);
       setLastUpdate(new Date());
     } catch (error) {
@@ -154,30 +136,6 @@ export const AppHeader: FC<Props> = ({
 
     return () => clearInterval(interval);
   }, []);
-
-  const messages: TMessage[] = [
-    {
-      avatar: basename + "/img/user1-128x128.jpg",
-      name: "Brad Diesel",
-      message: "Call me whenever you can...",
-      time: "2 mins",
-      action: <IconStarFilled size={18} color="red" />,
-    },
-    {
-      avatar: basename + "/img/user8-128x128.jpg",
-      name: "John Pierce",
-      message: "I got your message bro",
-      time: "4 hours ago",
-      action: <IconStarFilled size={18} color="gray" />,
-    },
-    {
-      avatar: basename + "/img/user3-128x128.jpg",
-      name: "Nora Silvester",
-      message: "The subject goes here",
-      time: "1 day ago",
-      action: <IconStarFilled size={18} color="orange" />,
-    },
-  ];
 
   const menuButton = (
     <IconButton
@@ -207,7 +165,7 @@ export const AppHeader: FC<Props> = ({
           {menuButton}
           <Box sx={{ flexGrow: 1 }} />
           <Stack direction="row" spacing={1} flexGrow={0}>
-            <Notifications items={notifications} />
+            <Notifications />
             <UserMenu />
           </Stack>
         </Toolbar>
@@ -242,9 +200,7 @@ export const AppHeader: FC<Props> = ({
           ))}
         </Stack>
         <Stack direction="row" spacing={2} flexGrow={0}>
-          <SearchBox />
-          <Messages items={messages} />
-          <Notifications items={notifications} />
+          <Notifications />
           <FullscreenButton />
           <UserMenu />
         </Stack>

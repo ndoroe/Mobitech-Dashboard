@@ -221,19 +221,25 @@ const HomePage: FC = () => {
       <PageLayout 
         title="SIM Card Dashboard"
         actions={
-          <Box>
+          <Box sx={{ 
+            display: 'flex', 
+            flexDirection: { xs: 'column', sm: 'row' },
+            gap: 1,
+            width: '100%'
+          }}>
             <Button
               variant="outlined"
               startIcon={<IconRefresh />}
               onClick={handleManualRefresh}
               disabled={refreshing}
-              sx={{ mr: 1 }}
+              sx={{ flex: { xs: 1, sm: 'none' } }}
             >
               Refresh
             </Button>
             <Button
               variant={autoRefresh ? "contained" : "outlined"}
               onClick={() => setAutoRefresh(!autoRefresh)}
+              sx={{ flex: { xs: 1, sm: 'none' } }}
             >
               Auto-Refresh: {autoRefresh ? 'ON' : 'OFF'}
             </Button>

@@ -6,7 +6,7 @@ const { promisePool: db } = require('../config/database');
  */
 exports.getPreferences = async (req, res) => {
   try {
-    const userEmail = req.user?.email || 'admin@materialadminlte.com'; // From JWT token
+    const userEmail = req.user.email; // From JWT token via authenticateToken middleware
 
     const query = `
       SELECT 
@@ -59,7 +59,7 @@ exports.getPreferences = async (req, res) => {
  */
 exports.updatePreferences = async (req, res) => {
   try {
-    const userEmail = req.user?.email || 'admin@materialadminlte.com'; // From JWT token
+    const userEmail = req.user.email; // From JWT token via authenticateToken middleware
     const {
       alerts_enabled,
       warning_threshold,

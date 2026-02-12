@@ -8,6 +8,12 @@ import { AppLayout, AuthLayout } from "./components";
 import ErrorPage from "./pages/error";
 import HomePage from "./pages/home";
 import { loginAction, loginLoader, LoginPage } from "./pages/login";
+import { RegisterPage, registerAction } from "./pages/register";
+import { VerifyEmailPage } from "./pages/verify-email";
+import ForgotPasswordPage from "./pages/forgot-password";
+import ResetPasswordPage from "./pages/reset-password";
+import UsersManagementPage from "./pages/admin/users";
+import ProfilePage from "./pages/profile";
 import { authProvider } from "./services/auth";
 import SimCardsPage from "./pages/simcards";
 import ReportsPage from "./pages/reports";
@@ -58,6 +64,16 @@ const router = createBrowserRouter(
           loader: protectedLoader,
           Component: SettingsPage,
         },
+        {
+          path: "profile",
+          loader: protectedLoader,
+          Component: ProfilePage,
+        },
+        {
+          path: "admin/users",
+          loader: adminLoader,
+          Component: UsersManagementPage,
+        },
       ],
     },
     {
@@ -70,6 +86,23 @@ const router = createBrowserRouter(
           action: loginAction,
           loader: loginLoader,
           Component: LoginPage,
+        },
+        {
+          path: "register",
+          action: registerAction,
+          Component: RegisterPage,
+        },
+        {
+          path: "verify-email",
+          Component: VerifyEmailPage,
+        },
+        {
+          path: "forgot-password",
+          Component: ForgotPasswordPage,
+        },
+        {
+          path: "reset-password/:token",
+          Component: ResetPasswordPage,
         },
       ],
     },
@@ -91,7 +124,11 @@ function protectedLoader({ request }: LoaderFunctionArgs) {
   // If the user is not logged in and tries to access `/protected`, we redirect
   // them to `/auth/login` with a `from` parameter that allows login to redirect back
   // to this page upon successful authentication
-  if (!authProvider.isAuthenticated) {
+  
+  // Check authentication status from localStorage
+  const isAuth = authProvider.checkAuth();
+  
+  if (!isAuth) {
     let from = new URL(request.url).pathname;
     if (BASE_NAME && from.startsWith(BASE_NAME)) {
       from = BASE_NAME.substring(BASE_NAME.length);
@@ -104,6 +141,20 @@ function protectedLoader({ request }: LoaderFunctionArgs) {
 
     return redirect("/auth/login");
   }
+  return null;
+}
+
+function adminLoader({ request }: LoaderFunctionArgs) {
+  // Check authentication first
+  const protectedResult = protectedLoader({ request } as LoaderFunctionArgs);
+  if (protectedResult) return protectedResult;
+
+  // Check if user has admin role
+  if (authProvider.user?.role !== "admin") {
+    // Redirect non-admin users to home page
+    return redirect("/");
+  }
+
   return null;
 }
 

@@ -3,8 +3,13 @@ const cors = require('cors');
 require('dotenv').config();
 
 const errorHandler = require('./middleware/errorHandler');
+const { authenticateToken, requireActive } = require('./middleware/auth');
 
 // Import routes
+const authRoutes = require('./routes/auth');
+const userRoutes = require('./routes/users');
+const notificationRoutes = require('./routes/notifications');
+const profileRoutes = require('./routes/profile');
 const dashboardRoutes = require('./routes/dashboard');
 const simRoutes = require('./routes/sims');
 const reportRoutes = require('./routes/reports');
@@ -37,6 +42,10 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Serve static files from public directory (for avatars)
+const path = require('path');
+app.use('/uploads', express.static(path.join(__dirname, '../../public/uploads')));
+
 // Request logging
 app.use((req, res, next) => {
   console.log(`${req.method} ${req.path}`);
@@ -48,11 +57,17 @@ app.get('/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
-// API Routes
-app.use('/api/dashboard', dashboardRoutes);
-app.use('/api/sims', simRoutes);
-app.use('/api/reports', reportRoutes);
-app.use('/api/preferences', preferencesRoutes);
+// Public API Routes (no authentication required)
+app.use('/api/auth', authRoutes);
+
+// Protected API Routes (authentication required)
+app.use('/api/users', userRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/profile', profileRoutes);
+app.use('/api/dashboard', authenticateToken, requireActive, dashboardRoutes);
+app.use('/api/sims', authenticateToken, requireActive, simRoutes);
+app.use('/api/reports', authenticateToken, requireActive, reportRoutes);
+app.use('/api/preferences', authenticateToken, requireActive, preferencesRoutes);
 
 // 404 Handler
 app.use((req, res) => {

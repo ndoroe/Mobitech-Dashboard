@@ -12,7 +12,7 @@ import {
   useTheme,
 } from "@mui/material";
 import { blue, orange, red } from "@mui/material/colors";
-import { IconCircle, IconDashboard, IconPackage } from "@tabler/icons-react";
+import { IconCircle, IconDashboard, IconPackage, IconUsers } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
 import {
   Outlet,
@@ -22,6 +22,7 @@ import {
 } from "react-router-dom";
 import { AppHeader } from "./AppHeader";
 import { NavMenu, TMenuItem } from "./NavMenu";
+import type { TUser } from "../../services/auth";
 
 export const drawerWidth = 250;
 
@@ -64,8 +65,9 @@ const DesktopDrawer = styled(Drawer, {
 export function AppLayout() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { isAuthenticated } = useRouteLoaderData("root") as {
+  const { isAuthenticated, user } = useRouteLoaderData("root") as {
     isAuthenticated: boolean;
+    user: TUser | null;
   };
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
@@ -77,7 +79,7 @@ export function AppLayout() {
     if (!isAuthenticated && location.pathname) {
       const params = new URLSearchParams();
       params.set("from", location.pathname);
-      navigate("/login?" + params.toString());
+      navigate("/auth/login?" + params.toString());
     }
   }, [isAuthenticated, location.pathname]);
 
@@ -98,6 +100,18 @@ export function AppLayout() {
       icon: <IconCircle strokeWidth={1.5} />,
     },
   ];
+
+  // Add admin menu item if user is admin
+  if (user?.role === "admin") {
+    items.push({
+      divider: true,
+    });
+    items.push({
+      link: "/admin/users",
+      label: "User Management",
+      icon: <IconUsers strokeWidth={1.5} />,
+    });
+  }
 
   const handleDrawerClose = () => {
     setIsClosing(true);
@@ -145,7 +159,7 @@ export function AppLayout() {
                   color: "text.secondary",
                 }}
               >
-                Material Admin <span style={{ fontWeight: 200 }}>LTE</span>
+                SIM Dashboard
               </Typography>
             </Toolbar>
             <Divider />
@@ -164,10 +178,10 @@ export function AppLayout() {
               >
                 {open ? (
                   <>
-                    Material Admin <span style={{ fontWeight: 200 }}>LTE</span>
+                    SIM Dashboard
                   </>
                 ) : (
-                  "MA"
+                  "SD"
                 )}
               </Typography>
             </Toolbar>

@@ -58,7 +58,7 @@ export const Messages: FC<Props> = ({ items, color, onClick, ...props }) => {
         open={open}
         onClose={handleClose}
       >
-        <MenuList sx={{ width: 300, p: 0 }}>
+        <MenuList sx={{ width: { xs: 280, sm: 300 }, p: 0, maxHeight: { xs: '70vh', sm: 500 }, overflowY: 'auto' }}>
           {items.map((item, index) => (
             <MenuItem
               key={index}

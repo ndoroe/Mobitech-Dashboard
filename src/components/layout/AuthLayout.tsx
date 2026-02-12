@@ -12,15 +12,15 @@ export function AuthLayout() {
             ? theme.palette.grey[100]
             : theme.palette.grey[900],
         flexGrow: 1,
-        height: "100vh",
+        minHeight: "100vh",
       }}
     >
-      <Container maxWidth="xs" sx={{ height: "100vh" }}>
+      <Container maxWidth="xs" sx={{ minHeight: "100vh" }}>
         <Stack
           spacing={2}
           sx={{
-            height: "100vh",
-            p: 2,
+            minHeight: "100vh",
+            p: { xs: 1, sm: 2 },
             overflow: "auto",
             justifyContent: "center",
           }}
@@ -29,14 +29,15 @@ export function AuthLayout() {
             variant="h4"
             component="h1"
             sx={{
-              mb: 2,
+              mb: { xs: 1, sm: 2 },
               textAlign: "center",
               color: "text.secondary",
+              fontSize: { xs: '1.5rem', sm: '2rem' },
             }}
           >
-            Material Admin <span style={{ fontWeight: 200 }}>LTE</span>
+            SIM Dashboard
           </Typography>
-          <Paper elevation={2} sx={{ p: 4 }}>
+          <Paper elevation={2} sx={{ p: { xs: 2, sm: 4 } }}>
             <Outlet />
           </Paper>
           <Copyright />

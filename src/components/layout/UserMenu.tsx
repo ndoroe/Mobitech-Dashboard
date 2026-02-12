@@ -2,6 +2,7 @@ import {
   alpha,
   Box,
   Button,
+  Chip,
   Divider,
   IconButton,
   IconButtonProps,
@@ -49,10 +50,6 @@ export const UserMenu: FC<IconButtonProps> = ({ onClick, sx }) => {
       label: "Profile",
     },
     {
-      link: "/account",
-      label: "Account",
-    },
-    {
       link: "/settings",
       label: "Settings",
     },
@@ -87,6 +84,12 @@ export const UserMenu: FC<IconButtonProps> = ({ onClick, sx }) => {
         }}
         open={Boolean(anchorElUser)}
         onClose={handleCloseUserMenu}
+        PaperProps={{
+          sx: {
+            minWidth: { xs: 200, sm: 240 },
+            maxHeight: { xs: '70vh', sm: 500 },
+          }
+        }}
       >
         <MenuList dense>
           <MenuItem>
@@ -95,14 +98,24 @@ export const UserMenu: FC<IconButtonProps> = ({ onClick, sx }) => {
               name={user?.name || user?.email}
               size={40}
             />
-            <Box pl={1}>
-              {user?.name && (
-                <Typography variant="body2">{user.name}</Typography>
+            <Box pl={1} flex={1}>
+              {user?.username && (
+                <Typography variant="body2" fontWeight={600}>
+                  {user.username}
+                </Typography>
               )}
               {user?.email && (
-                <Typography variant="caption" color="text.secondary">
+                <Typography variant="caption" color="text.secondary" display="block">
                   {user.email}
                 </Typography>
+              )}
+              {user?.role && (
+                <Chip 
+                  label={user.role.toUpperCase()} 
+                  size="small" 
+                  color={user.role === "admin" ? "secondary" : "default"}
+                  sx={{ mt: 0.5, height: 18, fontSize: '0.65rem' }}
+                />
               )}
             </Box>
           </MenuItem>

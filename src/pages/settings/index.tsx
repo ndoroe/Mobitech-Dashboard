@@ -169,14 +169,14 @@ const Settings: FC = () => {
 
   return (
     <PageLayout title="Settings">
-      <Grid container spacing={3}>
+      <Grid container spacing={{ xs: 2, md: 3 }}>
         <Grid item xs={12} md={8} lg={6}>
           <Card>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
+            <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
+              <Typography variant="h6" gutterBottom sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>
                 Alert Notification Settings
               </Typography>
-              <Typography variant="body2" color="text.secondary" paragraph>
+              <Typography variant="body2" color="text.secondary" paragraph sx={{ fontSize: { xs: '0.8rem', sm: '0.875rem' } }}>
                 Configure when and how you want to receive SIM usage alerts
               </Typography>
 
@@ -371,12 +371,17 @@ const Settings: FC = () => {
                 <Divider />
 
                 {/* Action Buttons */}
-                <Stack direction="row" spacing={2} justifyContent="flex-end">
+                <Stack 
+                  direction={{ xs: 'column', sm: 'row' }} 
+                  spacing={2} 
+                  justifyContent="flex-end"
+                >
                   <Button
                     variant="outlined"
                     startIcon={<IconRestore />}
                     onClick={handleReset}
                     disabled={saving}
+                    sx={{ width: { xs: '100%', sm: 'auto' } }}
                   >
                     Reset to Defaults
                   </Button>
@@ -385,6 +390,7 @@ const Settings: FC = () => {
                     startIcon={<IconDeviceFloppy />}
                     onClick={handleSave}
                     disabled={saving}
+                    sx={{ width: { xs: '100%', sm: 'auto' } }}
                   >
                     {saving ? 'Saving...' : 'Save Settings'}
                   </Button>

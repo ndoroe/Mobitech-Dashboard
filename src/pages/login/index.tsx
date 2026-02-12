@@ -6,6 +6,8 @@ import {
   TextField,
   Typography,
   Stack,
+  Alert,
+  AlertTitle,
 } from "@mui/material";
 import {
   Form,
@@ -14,8 +16,14 @@ import {
   useActionData,
   useLocation,
   useNavigation,
+  Link as RouterLink,
 } from "react-router-dom";
 import { authProvider } from "../../services/auth";
+
+interface LoginActionData {
+  error?: string;
+  status?: string;
+}
 
 export function LoginPage() {
   const location = useLocation();
@@ -25,24 +33,60 @@ export function LoginPage() {
   const navigation = useNavigation();
   const isLoggingIn = navigation.formData?.get("username") != null;
 
-  const actionData = useActionData() as { error: string } | undefined;
+  const actionData = useActionData() as LoginActionData | undefined;
+
+  // Determine alert severity and message based on status
+  const getAlertInfo = () => {
+    if (!actionData?.error) return null;
+
+    switch (actionData.status) {
+      case "pending_verification":
+        return {
+          severity: "warning" as const,
+          title: "Email Verification Required",
+          message: actionData.error,
+        };
+      case "pending_approval":
+        return {
+          severity: "info" as const,
+          title: "Pending Admin Approval",
+          message: actionData.error,
+        };
+      case "rejected":
+        return {
+          severity: "error" as const,
+          title: "Account Rejected",
+          message: actionData.error,
+        };
+      default:
+        return {
+          severity: "error" as const,
+          title: "Login Failed",
+          message: actionData.error,
+        };
+    }
+  };
+
+  const alertInfo = getAlertInfo();
 
   return (
     <Form method="post" replace>
       <input type="hidden" name="redirectTo" value={from} />
-      <Typography>Sign in to start your session</Typography>
-      <Typography variant="caption" color="text.secondary">
-        Demo account: admin/test
+      <Typography variant="h5" gutterBottom>
+        Sign in to your account
       </Typography>
+      <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 2 }}>
+        Enter your credentials to access SIM Dashboard
+      </Typography>
+
       <TextField
         margin="normal"
         fullWidth
         id="email"
-        label="Email"
+        label="Username or Email"
         name="email"
         autoComplete="email"
         autoFocus
-        defaultValue="admin"
       />
       <TextField
         margin="normal"
@@ -52,17 +96,24 @@ export function LoginPage() {
         type="password"
         id="password"
         autoComplete="current-password"
-        defaultValue="test"
       />
-      <Stack direction="row" alignItems="center" justifyContent="space-between">
+      <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mt: 1 }}>
         <FormControlLabel
           control={<Checkbox value="remember" color="primary" />}
           label="Remember me"
         />
-        <Link href="#" variant="body2" underline="hover">
+        <Link component={RouterLink} to="/auth/forgot-password" variant="body2" underline="hover">
           Forgot password?
         </Link>
       </Stack>
+
+      {alertInfo && (
+        <Alert severity={alertInfo.severity} sx={{ mt: 2 }}>
+          <AlertTitle>{alertInfo.title}</AlertTitle>
+          {alertInfo.message}
+        </Alert>
+      )}
+
       <Button
         type="submit"
         fullWidth
@@ -72,15 +123,15 @@ export function LoginPage() {
       >
         {isLoggingIn ? "Logging in..." : "Sign In"}
       </Button>
-      <Link href="#" variant="body2" underline="hover">
-        {"Don't have an account? Sign Up"}
-      </Link>
 
-      {actionData && actionData.error ? (
-        <Typography variant="body2" color="error" mt={2}>
-          {actionData.error}
+      <Stack direction="row" justifyContent="center" spacing={1}>
+        <Typography variant="body2">
+          Don't have an account?
         </Typography>
-      ) : null}
+        <Link component={RouterLink} to="/auth/register" variant="body2" underline="hover">
+          Sign Up
+        </Link>
+      </Stack>
     </Form>
   );
 }
@@ -105,27 +156,28 @@ export async function loginAction({ request }: LoaderFunctionArgs) {
 
   // Sign in and redirect to the proper destination if successful.
   try {
-    const ok = await authProvider.signin(username, password);
-    if (!ok) {
+    const result = await authProvider.signin(username, password);
+    
+    if (!result.success) {
       return {
-        error: "Invalid login attempt",
+        error: result.error || "Invalid login attempt",
+        status: result.status,
       };
     }
+
+    const redirectTo = formData.get("redirectTo") as string | null;
+    return redirect(redirectTo || "/");
   } catch (error) {
-    // Unused as of now but this is how you would handle invalid
-    // username/password combinations - just like validating the inputs
-    // above
+    console.error("Login error:", error);
     return {
-      error: "Invalid login attempt",
+      error: "An unexpected error occurred. Please try again.",
     };
   }
-
-  const redirectTo = formData.get("redirectTo") as string | null;
-  return redirect(redirectTo || "/");
 }
 
 export async function loginLoader() {
-  if (authProvider.isAuthenticated) {
+  // Check if user is already authenticated
+  if (authProvider.checkAuth()) {
     return redirect("/");
   }
   return null;
