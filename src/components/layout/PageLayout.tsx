@@ -28,19 +28,27 @@ export const PageLayout: FC<Props> = ({
   return (
     <Box {...props}>
       <Stack
-        direction={isMobile && !actions ? "column" : "row"}
-        alignItems="center"
+        direction={isMobile ? "column" : "row"}
+        alignItems={isMobile ? "flex-start" : "center"}
         justifyContent="space-between"
+        spacing={isMobile ? 1 : 2}
+        sx={{ mb: { xs: 1, sm: 2 } }}
       >
         {typeof title === "string" ? (
-          <Typography component="h1" fontSize="1.8rem">
+          <Typography 
+            component="h1" 
+            fontSize={{ xs: "1.5rem", sm: "1.8rem" }}
+            sx={{ fontWeight: 500 }}
+          >
             {title}
           </Typography>
         ) : (
           title
         )}
         {actions ? (
-          actions
+          <Box sx={{ width: isMobile ? '100%' : 'auto' }}>
+            {actions}
+          </Box>
         ) : (
           <PageBreadcrumbs title={breadcrumbTitle || title} />
         )}

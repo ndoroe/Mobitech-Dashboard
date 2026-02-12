@@ -77,9 +77,16 @@ const MonthlyUsageReport: React.FC = () => {
   const usageData = data.map(d => d.totalDataUsedGB);
 
   return (
-    <Paper sx={{ p: 2 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Typography variant="h6">
+    <Paper sx={{ p: { xs: 1.5, sm: 2 } }}>
+      <Box sx={{ 
+        display: 'flex', 
+        flexDirection: { xs: 'column', sm: 'row' },
+        justifyContent: 'space-between', 
+        alignItems: { xs: 'flex-start', sm: 'center' }, 
+        mb: 2,
+        gap: 1
+      }}>
+        <Typography variant="h6" sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>
           Total Data Usage - Monthly Report
         </Typography>
         <FormControl size="small" sx={{ minWidth: 120 }}>
@@ -92,7 +99,7 @@ const MonthlyUsageReport: React.FC = () => {
           </Select>
         </FormControl>
       </Box>
-      <Box sx={{ width: '100%', height: 350 }}>
+      <Box sx={{ width: '100%', height: { xs: 300, sm: 350 }, overflowX: 'auto' }}>
         <BarChart
           xAxis={[
             {

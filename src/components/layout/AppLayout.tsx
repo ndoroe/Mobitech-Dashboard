@@ -195,7 +195,12 @@ export function AppLayout() {
         }}
       >
         <Toolbar />
-        <Container sx={{ p: "12px 26px 26px" }} maxWidth="xl">
+        <Container 
+          sx={{ 
+            p: isMobile ? "8px 8px 16px" : "12px 26px 26px",
+          }} 
+          maxWidth="xl"
+        >
           <Outlet />
         </Container>
       </Box>

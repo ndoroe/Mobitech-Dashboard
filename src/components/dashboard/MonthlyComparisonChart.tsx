@@ -89,14 +89,14 @@ const MonthlyComparisonChart: React.FC = () => {
   });
 
   return (
-    <Paper sx={{ p: 2 }}>
-      <Typography variant="h6" gutterBottom>
+    <Paper sx={{ p: { xs: 1.5, sm: 2 } }}>
+      <Typography variant="h6" gutterBottom sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>
         Monthly Data Usage Comparison
       </Typography>
-      <Typography variant="body2" color="text.secondary" gutterBottom>
+      <Typography variant="body2" color="text.secondary" gutterBottom sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
         {data.lastMonth.name} vs {data.currentMonth.name}
       </Typography>
-      <Box sx={{ width: '100%', height: 350, mt: 2 }}>
+      <Box sx={{ width: '100%', height: { xs: 300, sm: 350 }, mt: 2, overflowX: 'auto' }}>
         <LineChart
           xAxis={[
             {

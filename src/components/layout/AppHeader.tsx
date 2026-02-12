@@ -12,13 +12,14 @@ import {
   useTheme,
 } from "@mui/material";
 import {
+  IconAlertTriangle,
   IconMail,
   IconMenu2,
   IconReport,
   IconStarFilled,
   IconUsers,
 } from "@tabler/icons-react";
-import { FC } from "react";
+import { FC, useEffect, useState } from "react";
 import { To, useNavigate } from "react-router-dom";
 import { BASE_NAME } from "../../App";
 import { FullscreenButton } from "../FullscreenButton";
@@ -27,6 +28,7 @@ import { Messages, TMessage } from "./Messages";
 import { Notifications, TNotification } from "./Notifications";
 import { SearchBox } from "./SearchBox";
 import { UserMenu } from "./UserMenu";
+import { notificationService } from "../../services/notifications";
 
 type TTopNav = {
   label: string;
@@ -85,6 +87,74 @@ export const AppHeader: FC<Props> = ({
   const navigate = useNavigate();
   const basename = BASE_NAME || "";
 
+  // State for dynamic notifications
+  const [notifications, setNotifications] = useState<TNotification[]>([]);
+  const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
+
+  // Fetch alert notifications
+  const fetchNotifications = async () => {
+    try {
+      const alertSummary = await notificationService.getAlertSummary();
+      
+      const notificationList: TNotification[] = [];
+      
+      // Add SIM usage alerts if any
+      if (alertSummary.count > 0) {
+        notificationList.push({
+          icon: <IconAlertTriangle size={20} />,
+          count: alertSummary.count,
+          text: "SIM usage alerts",
+          lastUpdated: notificationService.formatLastUpdated(alertSummary.lastUpdated),
+          onClick: () => {
+            // Try to open the alert modal if on home page
+            if (typeof (window as any).openAlertModal === 'function') {
+              (window as any).openAlertModal();
+            } else {
+              // Otherwise navigate to reports
+              navigate('/reports');
+            }
+          },
+        });
+      }
+      
+      // You can add other notification types here
+      // For now, keeping the demo notifications as placeholders
+      notificationList.push(
+        {
+          icon: <IconMail size={20} />,
+          count: 4,
+          text: "new messages",
+          lastUpdated: "3 mins",
+        },
+        {
+          icon: <IconUsers size={20} />,
+          count: 8,
+          text: "friend requests",
+          lastUpdated: "12 hours",
+        }
+      );
+      
+      setNotifications(notificationList);
+      setLastUpdate(new Date());
+    } catch (error) {
+      console.error('Failed to fetch notifications:', error);
+    }
+  };
+
+  // Fetch notifications on mount
+  useEffect(() => {
+    fetchNotifications();
+  }, []);
+
+  // Poll for notifications every 5 minutes
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchNotifications();
+    }, 5 * 60 * 1000); // 5 minutes
+
+    return () => clearInterval(interval);
+  }, []);
+
   const messages: TMessage[] = [
     {
       avatar: basename + "/img/user1-128x128.jpg",
@@ -106,27 +176,6 @@ export const AppHeader: FC<Props> = ({
       message: "The subject goes here",
       time: "1 day ago",
       action: <IconStarFilled size={18} color="orange" />,
-    },
-  ];
-
-  const notifications: TNotification[] = [
-    {
-      icon: <IconMail size={20} />,
-      count: 4,
-      text: "new messages",
-      lastUpdated: "3 mins",
-    },
-    {
-      icon: <IconUsers size={20} />,
-      count: 8,
-      text: "friend requests",
-      lastUpdated: "12 hours",
-    },
-    {
-      icon: <IconReport size={20} />,
-      count: 3,
-      text: "new reports",
-      lastUpdated: "2 days",
     },
   ];
 
@@ -154,13 +203,12 @@ export const AppHeader: FC<Props> = ({
         }}
         {...props}
       >
-        <Toolbar>
+        <Toolbar sx={{ minHeight: 56 }}>
           {menuButton}
           <Box sx={{ flexGrow: 1 }} />
-          <Stack direction="row" spacing={2} flexGrow={0}>
-            <SearchBox />
-            <Messages items={messages} />
+          <Stack direction="row" spacing={1} flexGrow={0}>
             <Notifications items={notifications} />
+            <UserMenu />
           </Stack>
         </Toolbar>
         <Divider />

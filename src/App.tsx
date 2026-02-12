@@ -11,6 +11,11 @@ import { loginAction, loginLoader, LoginPage } from "./pages/login";
 import { authProvider } from "./services/auth";
 import SimCardsPage from "./pages/simcards";
 import ReportsPage from "./pages/reports";
+import SettingsPage from "./pages/settings";
+import { InstallPrompt } from "./components/InstallPrompt";
+import { useOnlineStatus } from "./hooks/useOnlineStatus";
+import { Snackbar, Alert } from "@mui/material";
+import { useState, useEffect } from "react";
 
 // The basename of the app for situations where you can't deploy to the root of the domain, but a sub directory.
 export const BASE_NAME =
@@ -47,6 +52,11 @@ const router = createBrowserRouter(
           path: "reports",
           loader: protectedLoader,
           Component: ReportsPage,
+        },
+        {
+          path: "settings",
+          loader: protectedLoader,
+          Component: SettingsPage,
         },
       ],
     },
@@ -98,8 +108,49 @@ function protectedLoader({ request }: LoaderFunctionArgs) {
 }
 
 function App() {
+  const isOnline = useOnlineStatus();
+  const [showOfflineAlert, setShowOfflineAlert] = useState(false);
+  const [showOnlineAlert, setShowOnlineAlert] = useState(false);
+
+  useEffect(() => {
+    if (!isOnline) {
+      setShowOfflineAlert(true);
+      setShowOnlineAlert(false);
+    } else {
+      setShowOfflineAlert(false);
+      // Show online alert only if we were previously offline
+      if (showOfflineAlert) {
+        setShowOnlineAlert(true);
+        setTimeout(() => setShowOnlineAlert(false), 3000);
+      }
+    }
+  }, [isOnline, showOfflineAlert]);
+
   return (
-    <RouterProvider router={router} fallbackElement={<p>Initial Load...</p>} />
+    <>
+      <RouterProvider router={router} fallbackElement={<p>Initial Load...</p>} />
+      <InstallPrompt />
+      
+      <Snackbar
+        open={showOfflineAlert}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <Alert severity="warning" variant="filled">
+          You are offline. Some features may not be available.
+        </Alert>
+      </Snackbar>
+
+      <Snackbar
+        open={showOnlineAlert}
+        autoHideDuration={3000}
+        onClose={() => setShowOnlineAlert(false)}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <Alert severity="success" variant="filled">
+          Connection restored!
+        </Alert>
+      </Snackbar>
+    </>
   );
 }
 

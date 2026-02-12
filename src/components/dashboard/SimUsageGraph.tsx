@@ -64,49 +64,59 @@ export const SimUsageGraph: FC<Props> = ({ iccid }) => {
   }));
 
   return (
-    <Box>
-      <Box sx={{ mb: 2, display: 'flex', justifyContent: 'center' }}>
+    <Box sx={{ p: { xs: 1, sm: 0 } }}>
+      <Box sx={{ mb: 2, display: 'flex', justifyContent: 'center', overflowX: 'auto' }}>
         <ToggleButtonGroup
           value={period}
           exclusive
           onChange={handlePeriodChange}
           size="small"
+          sx={{
+            '& .MuiToggleButton-root': {
+              fontSize: { xs: '0.7rem', sm: '0.875rem' },
+              px: { xs: 1, sm: 2 },
+              py: { xs: 0.5, sm: 1 },
+              whiteSpace: 'nowrap',
+            }
+          }}
         >
-          <ToggleButton value="day">Last 24 Hours</ToggleButton>
-          <ToggleButton value="week">Last Week</ToggleButton>
-          <ToggleButton value="mtd">Month to Date</ToggleButton>
-          <ToggleButton value="month">Last Month</ToggleButton>
+          <ToggleButton value="day">Last 24h</ToggleButton>
+          <ToggleButton value="week">Week</ToggleButton>
+          <ToggleButton value="mtd">MTD</ToggleButton>
+          <ToggleButton value="month">Month</ToggleButton>
         </ToggleButtonGroup>
       </Box>
 
-      <LineChart
-        dataset={chartData}
-        xAxis={[{
-          scaleType: 'point',
-          dataKey: 'time',
-          tickLabelStyle: {
-            fontSize: 10,
-            angle: -45,
-            textAnchor: 'end',
-          }
-        }]}
-        yAxis={[{
-          label: 'Data (MB)',
-          labelStyle: {
-            fontSize: 14,
-          }
-        }]}
-        series={[
-          {
-            dataKey: 'used',
-            label: 'Data Used',
-            color: '#2196f3',
-            showMark: true,
-          }
-        ]}
-        height={420}
-        margin={{ top: 20, right: 30, bottom: 140, left: 80 }}
-      />
+      <Box sx={{ width: '100%', overflowX: 'auto' }}>
+        <LineChart
+          dataset={chartData}
+          xAxis={[{
+            scaleType: 'point',
+            dataKey: 'time',
+            tickLabelStyle: {
+              fontSize: 10,
+              angle: -45,
+              textAnchor: 'end',
+            }
+          }]}
+          yAxis={[{
+            label: 'Data (MB)',
+            labelStyle: {
+              fontSize: 14,
+            }
+          }]}
+          series={[
+            {
+              dataKey: 'used',
+              label: 'Data Used',
+              color: '#2196f3',
+              showMark: true,
+            }
+          ]}
+          height={420}
+          margin={{ top: 20, right: 30, bottom: 140, left: 80 }}
+        />
+      </Box>
     </Box>
   );
 };

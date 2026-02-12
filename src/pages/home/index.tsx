@@ -10,8 +10,9 @@ import { FC, useEffect, useState } from "react";
 import { PageLayout, SmallBox } from "../../components";
 import { PoolUtilization } from "../../components/dashboard/PoolUtilization";
 import { TopConsumersTable } from "../../components/dashboard/TopConsumersTable";
-import MonthlyComparisonChart from "../../components/dashboard/MonthlyComparisonChart";
-import { dashboardService, DashboardStats, TopConsumer } from "../../services/simcard";
+import { dashboardService, DashboardStats, TopConsumer, reportService } from "../../services/simcard";
+import { UsageAlertModal, AlertSim } from "../../components/dashboard/UsageAlertModal";
+import { preferencesService, DEFAULT_PREFERENCES, UserPreferences } from "../../services/preferences";
 
 const HomePage: FC = () => {
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -19,6 +20,51 @@ const HomePage: FC = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(true);
+  
+  // Alert modal state
+  const [showAlertModal, setShowAlertModal] = useState(false);
+  const [alertData, setAlertData] = useState<AlertSim[]>([]);
+  const [preferences, setPreferences] = useState<UserPreferences>(DEFAULT_PREFERENCES);
+
+  // Expose modal opener globally for notification click
+  useEffect(() => {
+    (window as any).openAlertModal = async () => {
+      // Re-fetch latest alerts when opened from notification
+      try {
+        const prefs = await preferencesService.getPreferences();
+        const warningThreshold = prefs.warning_threshold / 100;
+        const criticalThreshold = prefs.critical_threshold / 100;
+        
+        const [warningAlerts, criticalAlerts] = await Promise.all([
+          reportService.getAlerts(warningThreshold),
+          reportService.getAlerts(criticalThreshold),
+        ]);
+        
+        // Combine and deduplicate alerts
+        const allAlerts = [...criticalAlerts.alerts, ...warningAlerts.alerts];
+        const uniqueAlerts = Array.from(
+          new Map(allAlerts.map(alert => [alert.iccid, alert])).values()
+        );
+        
+        // Filter to only include alerts within threshold range
+        const filteredAlerts = uniqueAlerts.filter(alert => {
+          const usage = parseFloat(alert.usagePercent);
+          return usage >= prefs.warning_threshold;
+        });
+        
+        if (filteredAlerts.length > 0) {
+          setAlertData(filteredAlerts);
+          setPreferences(prefs);
+          setShowAlertModal(true);
+        }
+      } catch (error) {
+        console.error('Failed to fetch alerts:', error);
+      }
+    };
+    return () => {
+      delete (window as any).openAlertModal;
+    };
+  }, []);
 
   const fetchData = async () => {
     try {
@@ -47,6 +93,99 @@ const HomePage: FC = () => {
     }
   };
 
+  // Load user preferences
+  useEffect(() => {
+    const loadPreferences = async () => {
+      try {
+        const prefs = await preferencesService.getPreferences();
+        setPreferences(prefs);
+      } catch (error) {
+        console.error('Failed to load preferences:', error);
+        setPreferences(DEFAULT_PREFERENCES);
+      }
+    };
+    loadPreferences();
+  }, []);
+
+  // Check and show alert modal on data load
+  useEffect(() => {
+    const checkAlerts = async () => {
+      console.log('🔔 Checking alerts...', {
+        stats: stats?.alerts,
+        preferences,
+        alerts_enabled: preferences?.alerts_enabled
+      });
+      
+      if (!stats || !preferences || !preferences.alerts_enabled) {
+        console.log('⏭️ Skipping alert check:', {
+          hasStats: !!stats,
+          hasPreferences: !!preferences,
+          alertsEnabled: preferences?.alerts_enabled
+        });
+        return;
+      }
+      
+      // Check if modal was already shown today
+      const lastShown = localStorage.getItem('alertModalLastShown');
+      const today = new Date().toDateString();
+      
+      console.log('📅 Alert modal check:', { lastShown, today, shouldSkip: lastShown === today });
+      
+      if (lastShown === today) {
+        console.log('✅ Alert modal already shown today');
+        return; // Already shown today
+      }
+      
+      if (stats.alerts > 0) {
+        console.log(`⚠️ Found ${stats.alerts} alerts, fetching details...`);
+        try {
+          // Fetch alerts for both thresholds
+          const warningThreshold = preferences.warning_threshold / 100;
+          const criticalThreshold = preferences.critical_threshold / 100;
+          
+          const [warningAlerts, criticalAlerts] = await Promise.all([
+            reportService.getAlerts(warningThreshold),
+            reportService.getAlerts(criticalThreshold),
+          ]);
+          
+          console.log('📊 Alert results:', {
+            warningCount: warningAlerts.count,
+            criticalCount: criticalAlerts.count
+          });
+          
+          // Combine and deduplicate alerts
+          const allAlerts = [...criticalAlerts.alerts, ...warningAlerts.alerts];
+          const uniqueAlerts = Array.from(
+            new Map(allAlerts.map(alert => [alert.iccid, alert])).values()
+          );
+          
+          // Filter to only include alerts within our threshold range
+          const filteredAlerts = uniqueAlerts.filter(alert => {
+            const usage = parseFloat(alert.usagePercent);
+            return usage >= preferences.warning_threshold;
+          });
+          
+          console.log(`✨ Filtered alerts: ${filteredAlerts.length} SIMs to display`);
+          
+          if (filteredAlerts.length > 0) {
+            setAlertData(filteredAlerts);
+            setShowAlertModal(true);
+            localStorage.setItem('alertModalLastShown', today);
+            console.log('🚀 Alert modal opened!');
+          } else {
+            console.log('ℹ️ No alerts match the threshold criteria');
+          }
+        } catch (error) {
+          console.error('❌ Failed to fetch alert details:', error);
+        }
+      } else {
+        console.log('✅ No alerts to display');
+      }
+    };
+    
+    checkAlerts();
+  }, [stats, preferences]);
+
   useEffect(() => {
     fetchData();
   }, []);
@@ -67,28 +206,40 @@ const HomePage: FC = () => {
   };
 
   return (
-    <PageLayout 
-      title="SIM Card Dashboard"
-      actions={
-        <Box>
-          <Button
-            variant="outlined"
-            startIcon={<IconRefresh />}
-            onClick={handleManualRefresh}
-            disabled={refreshing}
-            sx={{ mr: 1 }}
-          >
-            Refresh
-          </Button>
-          <Button
-            variant={autoRefresh ? "contained" : "outlined"}
-            onClick={() => setAutoRefresh(!autoRefresh)}
-          >
-            Auto-Refresh: {autoRefresh ? 'ON' : 'OFF'}
-          </Button>
-        </Box>
-      }
-    >
+    <>
+      {/* Usage Alert Modal */}
+      <UsageAlertModal
+        open={showAlertModal}
+        onClose={() => setShowAlertModal(false)}
+        alerts={alertData}
+        warningThreshold={preferences?.warning_threshold ?? DEFAULT_PREFERENCES.warning_threshold}
+        criticalThreshold={preferences?.critical_threshold ?? DEFAULT_PREFERENCES.critical_threshold}
+        warningColor={preferences?.warning_color ?? DEFAULT_PREFERENCES.warning_color}
+        criticalColor={preferences?.critical_color ?? DEFAULT_PREFERENCES.critical_color}
+      />
+      
+      <PageLayout 
+        title="SIM Card Dashboard"
+        actions={
+          <Box>
+            <Button
+              variant="outlined"
+              startIcon={<IconRefresh />}
+              onClick={handleManualRefresh}
+              disabled={refreshing}
+              sx={{ mr: 1 }}
+            >
+              Refresh
+            </Button>
+            <Button
+              variant={autoRefresh ? "contained" : "outlined"}
+              onClick={() => setAutoRefresh(!autoRefresh)}
+            >
+              Auto-Refresh: {autoRefresh ? 'ON' : 'OFF'}
+            </Button>
+          </Box>
+        }
+      >
       <Grid container spacing={3} mt={0}>
         {/* KPI Cards */}
         <Grid item xs={12} sm={6} md={3}>
@@ -104,7 +255,7 @@ const HomePage: FC = () => {
           <SmallBox
             elevation={3}
             title="Monthly Usage"
-            value={`${stats?.monthlyUsage || 0} GB`}
+            value={`${stats?.monthlyUsage || 0} MB`}
             icon={<IconDatabase size={70} />}
             color={green[800]}
           />
@@ -144,13 +295,9 @@ const HomePage: FC = () => {
             <TopConsumersTable consumers={topConsumers} loading={loading} />
           </Paper>
         </Grid>
-
-        {/* Monthly Comparison Chart */}
-        <Grid item xs={12}>
-          <MonthlyComparisonChart />
-        </Grid>
       </Grid>
     </PageLayout>
+    </>
   );
 };
 

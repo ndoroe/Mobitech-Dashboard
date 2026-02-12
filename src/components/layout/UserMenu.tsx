@@ -53,6 +53,10 @@ export const UserMenu: FC<IconButtonProps> = ({ onClick, sx }) => {
       label: "Account",
     },
     {
+      link: "/settings",
+      label: "Settings",
+    },
+    {
       divider: true,
     },
   ];

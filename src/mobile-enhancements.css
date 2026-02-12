@@ -1,0 +1,110 @@
+/* Mobile-specific CSS enhancements */
+
+/* Improve touch targets */
+@media (max-width: 600px) {
+  button,
+  a,
+  .MuiIconButton-root {
+    min-height: 44px !important;
+    min-width: 44px !important;
+  }
+
+  /* Better tap highlighting */
+  * {
+    -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1);
+  }
+
+  /* Disable text selection on interactive elements */
+  button,
+  .MuiButton-root,
+  .MuiIconButton-root,
+  .MuiTab-root {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+  }
+
+  /* Smoother scrolling */
+  * {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Prevent zoom on input focus on iOS */
+  input[type='text'],
+  input[type='number'],
+  input[type='email'],
+  input[type='tel'],
+  input[type='password'],
+  input[type='date'],
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+
+  /* Better table scrolling */
+  .MuiTableContainer-root {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Reduce animations on mobile for better performance */
+  * {
+    animation-duration: 0.2s !important;
+    transition-duration: 0.2s !important;
+  }
+}
+
+/* Landscape mobile optimizations */
+@media (max-height: 500px) and (orientation: landscape) {
+  .MuiToolbar-root {
+    min-height: 48px !important;
+  }
+
+  .MuiDrawer-paper {
+    width: 200px !important;
+  }
+}
+
+/* Safe area insets for notched devices */
+@supports (padding: max(0px)) {
+  body {
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+
+  .MuiAppBar-root {
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+}
+
+/* Fix for iOS Safari bottom bar */
+@supports (-webkit-touch-callout: none) {
+  .MuiContainer-root {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* Better focus states for accessibility */
+@media (max-width: 600px) {
+  *:focus-visible {
+    outline: 2px solid #1976d2;
+    outline-offset: 2px;
+  }
+}
+
+/* Prevent horizontal scroll on mobile */
+body {
+  overflow-x: hidden;
+}
+
+/* Better mobile card spacing */
+@media (max-width: 600px) {
+  .MuiCard-root {
+    border-radius: 8px !important;
+  }
+
+  .MuiPaper-root {
+    border-radius: 8px !important;
+  }
+}

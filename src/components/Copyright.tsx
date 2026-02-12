@@ -10,8 +10,8 @@ export const Copyright: FC<TypographyProps> = (props) => {
       {...props}
     >
       Copyright © {new Date().getFullYear()}{" "}
-      <Link href="https://github.com/DucThanhNguyen/" underline="hover">
-        Thanh Nguyen
+      <Link href="https://github.com/ndoroe/" underline="hover">
+        Edron Ndoro
       </Link>
     </Typography>
   );

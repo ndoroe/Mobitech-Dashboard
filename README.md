@@ -1,4 +1,4 @@
-# Material Admin LTE
+# Mobitech Dashboard
 
 This project reimplements [Admin LTE](https://adminlte.io/themes/v3/) with [React](https://reactjs.org) and [MUI](https://mui.com/material-ui/getting-started/).
 

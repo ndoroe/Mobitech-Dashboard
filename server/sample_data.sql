@@ -7,6 +7,7 @@ USE Mobitech;
 -- Create test tables with same schema as production
 DROP TABLE IF EXISTS Data_test;
 DROP TABLE IF EXISTS assets_test;
+DROP TABLE IF EXISTS user_preferences;
 
 -- Test Assets Table (SIM Cards)
 CREATE TABLE `assets_test` (
@@ -30,6 +31,24 @@ CREATE TABLE `Data_test` (
   INDEX `idx_createdTime` (`createdTime`),
   FOREIGN KEY (`idAsset`) REFERENCES `assets_test`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- User Preferences Table (for alert notification settings)
+CREATE TABLE `user_preferences` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `user_email` VARCHAR(255) NOT NULL UNIQUE,
+  `alerts_enabled` BOOLEAN DEFAULT TRUE COMMENT 'Enable/disable alert notifications',
+  `warning_threshold` DECIMAL(5,2) DEFAULT 60.00 COMMENT 'Warning threshold percentage (60-80%)',
+  `critical_threshold` DECIMAL(5,2) DEFAULT 80.00 COMMENT 'Critical threshold percentage (80%+)',
+  `warning_color` VARCHAR(7) DEFAULT '#ed6c02' COMMENT 'Hex color for warning alerts (orange)',
+  `critical_color` VARCHAR(7) DEFAULT '#d32f2f' COMMENT 'Hex color for critical alerts (red)',
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX `idx_user_email` (`user_email`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Insert default preferences for demo user
+INSERT INTO user_preferences (user_email, alerts_enabled, warning_threshold, critical_threshold, warning_color, critical_color)
+VALUES ('admin@materialadminlte.com', TRUE, 60.00, 80.00, '#ed6c02', '#d32f2f');
 
 -- Generate 100 test SIM cards with varied profiles
 DELIMITER $$

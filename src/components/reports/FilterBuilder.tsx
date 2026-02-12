@@ -140,14 +140,22 @@ const FilterBuilder: React.FC<FilterBuilderProps> = ({
   };
 
   return (
-    <Paper sx={{ p: 2 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Typography variant="h6">Filter Builder</Typography>
+    <Paper sx={{ p: { xs: 1.5, sm: 2 } }}>
+      <Box sx={{ 
+        display: 'flex', 
+        flexDirection: { xs: 'column', sm: 'row' },
+        justifyContent: 'space-between', 
+        alignItems: { xs: 'stretch', sm: 'center' }, 
+        mb: 2,
+        gap: 1
+      }}>
+        <Typography variant="h6" sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>Filter Builder</Typography>
         <Button
           variant="contained"
           startIcon={<IconPlus size={18} />}
           onClick={addFilter}
           size="small"
+          sx={{ width: { xs: '100%', sm: 'auto' } }}
         >
           Add Filter
         </Button>
@@ -169,8 +177,13 @@ const FilterBuilder: React.FC<FilterBuilderProps> = ({
                 <Chip label="AND" size="small" color="primary" />
               </Box>
             )}
-            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-              <FormControl size="small" sx={{ minWidth: 150 }}>
+            <Box sx={{ 
+              display: 'flex', 
+              flexDirection: { xs: 'column', sm: 'row' },
+              gap: 1, 
+              alignItems: { xs: 'stretch', sm: 'center' } 
+            }}>
+              <FormControl size="small" sx={{ minWidth: { sm: 150 }, flex: { xs: 1, sm: 'none' } }}>
                 <InputLabel>Field</InputLabel>
                 <Select
                   value={filter.field}
@@ -191,7 +204,7 @@ const FilterBuilder: React.FC<FilterBuilderProps> = ({
                 </Select>
               </FormControl>
 
-              <FormControl size="small" sx={{ minWidth: 120 }}>
+              <FormControl size="small" sx={{ minWidth: { sm: 120 }, flex: { xs: 1, sm: 'none' } }}>
                 <InputLabel>Operator</InputLabel>
                 <Select
                   value={filter.operator}
@@ -218,6 +231,7 @@ const FilterBuilder: React.FC<FilterBuilderProps> = ({
                 color="error"
                 onClick={() => removeFilter(filter.id)}
                 size="small"
+                sx={{ alignSelf: { xs: 'center', sm: 'auto' } }}
               >
                 <IconTrash size={18} />
               </IconButton>

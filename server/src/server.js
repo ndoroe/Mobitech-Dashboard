@@ -8,6 +8,7 @@ const errorHandler = require('./middleware/errorHandler');
 const dashboardRoutes = require('./routes/dashboard');
 const simRoutes = require('./routes/sims');
 const reportRoutes = require('./routes/reports');
+const preferencesRoutes = require('./routes/preferences');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -51,6 +52,7 @@ app.get('/health', (req, res) => {
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/sims', simRoutes);
 app.use('/api/reports', reportRoutes);
+app.use('/api/preferences', preferencesRoutes);
 
 // 404 Handler
 app.use((req, res) => {

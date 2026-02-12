@@ -91,8 +91,12 @@ const ReportsPage: FC = () => {
     const fetchMetadata = async () => {
       try {
         const metadata = await reportService.getMetadata();
-        setAvailableFields(metadata.fields);
-        setAvailableOperators(metadata.operators);
+        if (metadata && metadata.fields) {
+          setAvailableFields(metadata.fields);
+        }
+        if (metadata && metadata.operators) {
+          setAvailableOperators(metadata.operators);
+        }
       } catch (error) {
         console.error('Error fetching metadata:', error);
       }
@@ -187,22 +191,48 @@ const ReportsPage: FC = () => {
 
   return (
     <PageLayout title="Reports & Analytics">
-      <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-        <Tabs value={tabValue} onChange={(e, newValue) => setTabValue(newValue)}>
-          <Tab label="Basic Report Builder" icon={<IconFileAnalytics size={18} />} iconPosition="start" />
-          <Tab label="Dynamic Report Builder" icon={<IconFileAnalytics size={18} />} iconPosition="start" />
-          <Tab label="Monthly Usage Report" icon={<IconChartBar size={18} />} iconPosition="start" />
-          <Tab label="Alerts" icon={<IconFileAnalytics size={18} />} iconPosition="start" />
+      <Box sx={{ borderBottom: 1, borderColor: 'divider', overflowX: 'auto' }}>
+        <Tabs 
+          value={tabValue} 
+          onChange={(e, newValue) => setTabValue(newValue)}
+          variant="scrollable"
+          scrollButtons="auto"
+          allowScrollButtonsMobile
+        >
+          <Tab 
+            label="Basic" 
+            icon={<IconFileAnalytics size={18} />} 
+            iconPosition="start" 
+            sx={{ minHeight: { xs: 48, sm: 64 } }}
+          />
+          <Tab 
+            label="Dynamic" 
+            icon={<IconFileAnalytics size={18} />} 
+            iconPosition="start"
+            sx={{ minHeight: { xs: 48, sm: 64 } }}
+          />
+          <Tab 
+            label="Monthly" 
+            icon={<IconChartBar size={18} />} 
+            iconPosition="start"
+            sx={{ minHeight: { xs: 48, sm: 64 } }}
+          />
+          <Tab 
+            label="Alerts" 
+            icon={<IconFileAnalytics size={18} />} 
+            iconPosition="start"
+            sx={{ minHeight: { xs: 48, sm: 64 } }}
+          />
         </Tabs>
       </Box>
 
       {/* Basic Report Builder Tab */}
       <TabPanel value={tabValue} index={0}>
-        <Grid container spacing={3}>
+        <Grid container spacing={{ xs: 2, md: 3 }}>
           <Grid item xs={12} md={4}>
             <Card>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
+              <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
+                <Typography variant="h6" gutterBottom sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>
                   Report Configuration
                 </Typography>
                 <Box sx={{ mt: 3 }}>
@@ -272,16 +302,18 @@ const ReportsPage: FC = () => {
           {/* Report Results */}
           <Grid item xs={12} md={8}>
             {reportData.length > 0 ? (
-              <Paper sx={{ p: 2 }}>
-                <Typography variant="h6" gutterBottom>
+              <Paper sx={{ p: { xs: 1, sm: 2 } }}>
+                <Typography variant="h6" gutterBottom sx={{ fontSize: { xs: '1rem', sm: '1.25rem' }, px: 1 }}>
                   Report Results ({reportData.length} records)
                 </Typography>
-                <TableContainer sx={{ maxHeight: 500 }}>
-                  <Table stickyHeader size="small">
+                <TableContainer sx={{ maxHeight: 500, overflowX: 'auto' }}>
+                  <Table stickyHeader size="small" sx={{ minWidth: { xs: 600, sm: 'auto' } }}>
                     <TableHead>
                       <TableRow>
                         {Object.keys(reportData[0]).map((key) => (
-                          <TableCell key={key}>{key}</TableCell>
+                          <TableCell key={key} sx={{ whiteSpace: 'nowrap', fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
+                            {key}
+                          </TableCell>
                         ))}
                       </TableRow>
                     </TableHead>
@@ -289,7 +321,7 @@ const ReportsPage: FC = () => {
                       {reportData.slice(0, 100).map((row, idx) => (
                         <TableRow key={idx} hover>
                           {Object.values(row).map((value: any, cellIdx) => (
-                            <TableCell key={cellIdx}>
+                            <TableCell key={cellIdx} sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>
                               {value instanceof Date ? value.toLocaleString() : String(value)}
                             </TableCell>
                           ))}
@@ -320,11 +352,11 @@ const ReportsPage: FC = () => {
         <Grid container spacing={3}>
           <Grid item xs={12}>
             <Card>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
+              <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
+                <Typography variant="h6" gutterBottom sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>
                   Select Metrics
                 </Typography>
-                <FormGroup row>
+                <FormGroup row sx={{ '& .MuiFormControlLabel-root': { mr: { xs: 1, sm: 2 } } }}>
                   {availableFields.map((field) => (
                     <FormControlLabel
                       key={field.name}
@@ -332,9 +364,10 @@ const ReportsPage: FC = () => {
                         <Checkbox
                           checked={selectedMetrics.includes(field.name)}
                           onChange={() => handleMetricToggle(field.name)}
+                          size="small"
                         />
                       }
-                      label={field.label}
+                      label={<Typography variant="body2" sx={{ fontSize: { xs: '0.8rem', sm: '0.875rem' } }}>{field.label}</Typography>}
                     />
                   ))}
                 </FormGroup>
@@ -353,8 +386,8 @@ const ReportsPage: FC = () => {
 
           <Grid item xs={12}>
             <Card>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
+              <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
+                <Typography variant="h6" gutterBottom sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>
                   Additional Options
                 </Typography>
                 <Grid container spacing={2}>

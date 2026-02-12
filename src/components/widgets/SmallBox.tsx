@@ -33,21 +33,28 @@ export const SmallBox: FC<Props> = ({
       sx={color ? { backgroundColor: color, color: "white" } : undefined}
       {...props}
     >
-      <CardContent sx={{ position: "relative" }}>
+      <CardContent sx={{ position: "relative", p: { xs: 1.5, sm: 2 } }}>
         {icon && (
           <Box
             sx={{
               position: "absolute",
-              top: 8,
-              right: 8,
+              top: { xs: 4, sm: 8 },
+              right: { xs: 4, sm: 8 },
               color: "rgba(0, 0, 0, 0.15)",
+              '& > svg': {
+                width: { xs: 40, sm: 70 },
+                height: { xs: 40, sm: 70 },
+              },
             }}
           >
             {icon}
           </Box>
         )}
-        <Typography variant="h4">{value}</Typography>
-        <Typography color={color ? "white" : "text.secondary"}>
+        <Typography variant="h4" sx={{ fontSize: { xs: '1.5rem', sm: '2rem' } }}>{value}</Typography>
+        <Typography 
+          color={color ? "white" : "text.secondary"}
+          sx={{ fontSize: { xs: '0.8rem', sm: '1rem' } }}
+        >
           {title}
         </Typography>
       </CardContent>
@@ -62,7 +69,11 @@ export const SmallBox: FC<Props> = ({
           size="small"
           href={actionLink}
           endIcon={<IconLink size={18} />}
-          sx={color ? { color: "white" } : undefined}
+          sx={{
+            ...color && { color: "white" },
+            fontSize: { xs: '0.75rem', sm: '0.875rem' },
+            py: { xs: 0.5, sm: 1 },
+          }}
           fullWidth
         >
           {actionText || "More info"}
