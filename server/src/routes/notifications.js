@@ -10,6 +10,7 @@ router.use(authenticateToken);
 router.get('/', notificationController.getNotifications);
 router.get('/count', notificationController.getNotificationCount);
 router.post('/read-all', notificationController.markAllAsRead);
+router.delete('/clear-read', notificationController.clearReadNotifications);
 router.post('/:id/read', notificationController.markAsRead);
 router.delete('/:id', notificationController.deleteNotification);
 

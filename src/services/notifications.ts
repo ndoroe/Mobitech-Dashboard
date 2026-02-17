@@ -29,10 +29,11 @@ export const notificationService = {
       const warningThreshold = preferences.warning_threshold / 100;
       const criticalThreshold = preferences.critical_threshold / 100;
 
-      // Fetch alerts for both thresholds
-      const [warningData, criticalData] = await Promise.all([
+      // Fetch alerts for both current usage thresholds and projected alerts
+      const [warningData, criticalData, projectedData] = await Promise.all([
         reportService.getAlerts(warningThreshold),
         reportService.getAlerts(criticalThreshold),
+        reportService.getProjectedAlerts(preferences.projected_threshold / 100),
       ]);
 
       // Critical alerts are those >= critical threshold
@@ -41,9 +42,13 @@ export const notificationService = {
       // Warning alerts are those >= warning threshold but < critical threshold
       const totalWarningAndAbove = warningData.count;
       const warningCount = totalWarningAndAbove - criticalCount;
+      
+      // Add projected alerts to the total count
+      const projectedCount = projectedData.count || 0;
+      const totalCount = totalWarningAndAbove + projectedCount;
 
       return {
-        count: totalWarningAndAbove,
+        count: totalCount,
         warningCount: Math.max(0, warningCount),
         criticalCount,
         lastUpdated: new Date(),

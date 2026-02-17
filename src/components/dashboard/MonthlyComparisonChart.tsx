@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Paper, Typography, Box, CircularProgress, Alert } from '@mui/material';
 import { LineChart } from '@mui/x-charts/LineChart';
-import axios from 'axios';
+import api from '../../services/api';
 
 interface MonthlyData {
   date: string;
@@ -29,7 +29,7 @@ const MonthlyComparisonChart: React.FC = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`${process.env.REACT_APP_API_URL || 'http://localhost:5000/api'}/dashboard/monthly-comparison`);
+      const response = await api.get('/dashboard/monthly-comparison');
       if (response.data.success) {
         setData(response.data.data);
         setError(null);

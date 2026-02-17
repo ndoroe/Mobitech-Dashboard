@@ -1,6 +1,8 @@
 import { Link, Typography, TypographyProps } from "@mui/material";
 import { FC } from "react";
 
+const APP_VERSION = process.env.REACT_APP_VERSION || '0.1.0';
+
 export const Copyright: FC<TypographyProps> = (props) => {
   return (
     <Typography
@@ -13,6 +15,7 @@ export const Copyright: FC<TypographyProps> = (props) => {
       <Link href="https://github.com/ndoroe/" underline="hover">
         Edron Ndoro
       </Link>
+      {" · "}v{APP_VERSION}
     </Typography>
   );
 };

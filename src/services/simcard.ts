@@ -3,9 +3,18 @@ import apiClient from './api';
 export interface DashboardStats {
   totalSims: number;
   monthlyUsage: string;
+  monthlyUsageUnit: string;
+  projectedUsage: string;
+  projectedUsageUnit: string;
+  projectionData: {
+    daysElapsed: number;
+    daysInMonth: number;
+    dailyAverage: string;
+  };
   poolUtilization: {
     totalCapacity: string;
     totalUsed: string;
+    unit: string;
     percentage: number;
   };
   alerts: number;
@@ -76,6 +85,11 @@ export const reportService = {
 
   async getAlerts(threshold: number = 0.8) {
     const response = await apiClient.get(`/reports/alerts?threshold=${threshold}`);
+    return response.data.data;
+  },
+
+  async getProjectedAlerts(threshold: number = 0.8) {
+    const response = await apiClient.get(`/reports/projected-alerts?threshold=${threshold}`);
     return response.data.data;
   },
 

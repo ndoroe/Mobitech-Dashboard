@@ -5,11 +5,14 @@ import {
   IconDatabase,
   IconRefresh,
   IconDeviceSim,
+  IconTrendingUp,
 } from "@tabler/icons-react";
 import { FC, useEffect, useState } from "react";
 import { PageLayout, SmallBox } from "../../components";
 import { PoolUtilization } from "../../components/dashboard/PoolUtilization";
 import { TopConsumersTable } from "../../components/dashboard/TopConsumersTable";
+import MonthlyUsageReport from "../../components/dashboard/MonthlyUsageReport";
+import MonthlyComparisonChart from "../../components/dashboard/MonthlyComparisonChart";
 import { dashboardService, DashboardStats, TopConsumer, reportService } from "../../services/simcard";
 import { UsageAlertModal, AlertSim } from "../../components/dashboard/UsageAlertModal";
 import { preferencesService, DEFAULT_PREFERENCES, UserPreferences } from "../../services/preferences";
@@ -35,19 +38,39 @@ const HomePage: FC = () => {
         const warningThreshold = prefs.warning_threshold / 100;
         const criticalThreshold = prefs.critical_threshold / 100;
         
-        const [warningAlerts, criticalAlerts] = await Promise.all([
+        const [warningAlerts, criticalAlerts, projectedAlerts] = await Promise.all([
           reportService.getAlerts(warningThreshold),
           reportService.getAlerts(criticalThreshold),
+          reportService.getProjectedAlerts(prefs.projected_threshold / 100),
         ]);
         
         // Combine and deduplicate alerts
         const allAlerts = [...criticalAlerts.alerts, ...warningAlerts.alerts];
         const uniqueAlerts = Array.from(
-          new Map(allAlerts.map(alert => [alert.iccid, alert])).values()
+          new Map(allAlerts.map((alert: any) => [alert.iccid, alert])).values()
         );
         
+        // Add projected alerts
+        const projectedAlertsWithFlag = projectedAlerts.alerts.map((alert: any) => ({
+          ...alert,
+          isProjected: true,
+          projectedPercent: alert.projectedPercent,
+          usagePercent: alert.currentPercent // Use current percent for sorting
+        }));
+        
+        // Merge projected alerts
+        projectedAlertsWithFlag.forEach((projected: any) => {
+          const existing = uniqueAlerts.find((a: any) => a.iccid === projected.iccid);
+          if (!existing) {
+            uniqueAlerts.push(projected);
+          } else {
+            (existing as any).isProjected = true;
+            (existing as any).projectedPercent = projected.projectedPercent;
+          }
+        });
+        
         // Filter to only include alerts within threshold range
-        const filteredAlerts = uniqueAlerts.filter(alert => {
+        const filteredAlerts = uniqueAlerts.filter((alert: any) => {
           const usage = parseFloat(alert.usagePercent);
           return usage >= prefs.warning_threshold;
         });
@@ -143,14 +166,17 @@ const HomePage: FC = () => {
           const warningThreshold = preferences.warning_threshold / 100;
           const criticalThreshold = preferences.critical_threshold / 100;
           
-          const [warningAlerts, criticalAlerts] = await Promise.all([
+          // Fetch both current usage and projected usage alerts
+          const [warningAlerts, criticalAlerts, projectedAlerts] = await Promise.all([
             reportService.getAlerts(warningThreshold),
             reportService.getAlerts(criticalThreshold),
+            reportService.getProjectedAlerts(preferences.projected_threshold / 100),
           ]);
           
           console.log('📊 Alert results:', {
             warningCount: warningAlerts.count,
-            criticalCount: criticalAlerts.count
+            criticalCount: criticalAlerts.count,
+            projectedCount: projectedAlerts.count
           });
           
           // Combine and deduplicate alerts
@@ -158,6 +184,25 @@ const HomePage: FC = () => {
           const uniqueAlerts = Array.from(
             new Map(allAlerts.map(alert => [alert.iccid, alert])).values()
           );
+          
+          // Add projected alerts (mark them as projected)
+          const projectedAlertsWithFlag = projectedAlerts.alerts.map((alert: any) => ({
+            ...alert,
+            isProjected: true,
+            projectedPercent: alert.projectedPercent
+          }));
+          
+          // Merge projected alerts with unique alerts (avoid duplicates)
+          projectedAlertsWithFlag.forEach((projected: any) => {
+            const existing = uniqueAlerts.find(a => a.iccid === projected.iccid);
+            if (!existing) {
+              uniqueAlerts.push(projected);
+            } else {
+              // Add projected info to existing alert
+              (existing as any).isProjected = true;
+              (existing as any).projectedPercent = projected.projectedPercent;
+            }
+          });
           
           // Filter to only include alerts within our threshold range
           const filteredAlerts = uniqueAlerts.filter(alert => {
@@ -205,6 +250,37 @@ const HomePage: FC = () => {
     fetchData();
   };
 
+  const handleAlertsClick = async () => {
+    if (!stats?.alerts || stats.alerts === 0) return;
+    
+    try {
+      const warningThreshold = preferences.warning_threshold / 100;
+      const criticalThreshold = preferences.critical_threshold / 100;
+      
+      const [warningAlerts, criticalAlerts] = await Promise.all([
+        reportService.getAlerts(warningThreshold),
+        reportService.getAlerts(criticalThreshold),
+      ]);
+      
+      const allAlerts = [...criticalAlerts.alerts, ...warningAlerts.alerts];
+      const uniqueAlerts = Array.from(
+        new Map(allAlerts.map(alert => [alert.iccid, alert])).values()
+      );
+      
+      const filteredAlerts = uniqueAlerts.filter(alert => {
+        const usage = parseFloat(alert.usagePercent);
+        return usage >= preferences.warning_threshold;
+      });
+      
+      if (filteredAlerts.length > 0) {
+        setAlertData(filteredAlerts);
+        setShowAlertModal(true);
+      }
+    } catch (error) {
+      console.error('Failed to fetch alerts:', error);
+    }
+  };
+
   return (
     <>
       {/* Usage Alert Modal */}
@@ -247,7 +323,7 @@ const HomePage: FC = () => {
         }
       >
       <Grid container spacing={3} mt={0}>
-        {/* KPI Cards */}
+        {/* KPI Cards - 4 cards for perfect grid layout */}
         <Grid item xs={12} sm={6} md={3}>
           <SmallBox
             elevation={3}
@@ -261,7 +337,7 @@ const HomePage: FC = () => {
           <SmallBox
             elevation={3}
             title="Monthly Usage"
-            value={`${stats?.monthlyUsage || 0} MB`}
+            value={`${stats?.monthlyUsage || 0} GB`}
             icon={<IconDatabase size={70} />}
             color={green[800]}
           />
@@ -269,10 +345,10 @@ const HomePage: FC = () => {
         <Grid item xs={12} sm={6} md={3}>
           <SmallBox
             elevation={3}
-            title="Pool Utilization"
-            value={`${stats?.poolUtilization.percentage || 0}%`}
-            icon={<IconDatabase size={70} />}
-            color={amber[600]}
+            title="Projected Usage"
+            value={`${stats?.projectedUsage || 0} GB`}
+            icon={<IconTrendingUp size={70} />}
+            color={blue[700]}
           />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
@@ -282,11 +358,12 @@ const HomePage: FC = () => {
             value={stats?.alerts || 0}
             icon={<IconAlertTriangle size={70} />}
             color={red[700]}
+            onClick={stats?.alerts ? handleAlertsClick : undefined}
           />
         </Grid>
 
         {/* Pool Utilization Widget */}
-        <Grid item xs={12} md={4}>
+        <Grid item xs={12} sm={6} lg={4}>
           <PoolUtilization
             totalCapacity={parseFloat(stats?.poolUtilization.totalCapacity || '0')}
             totalUsed={parseFloat(stats?.poolUtilization.totalUsed || '0')}
@@ -296,10 +373,20 @@ const HomePage: FC = () => {
         </Grid>
 
         {/* Top Consumers Table */}
-        <Grid item xs={12} md={8}>
-          <Paper sx={{ p: 2, display: "flex", flexDirection: "column" }}>
+        <Grid item xs={12} sm={6} lg={8}>
+          <Paper sx={{ p: 2, display: "flex", flexDirection: "column", height: '100%' }}>
             <TopConsumersTable consumers={topConsumers} loading={loading} />
           </Paper>
+        </Grid>
+
+        {/* Monthly Comparison Line Chart */}
+        <Grid item xs={12} lg={6}>
+          <MonthlyComparisonChart />
+        </Grid>
+
+        {/* Monthly Usage Bar Chart */}
+        <Grid item xs={12} lg={6}>
+          <MonthlyUsageReport />
         </Grid>
       </Grid>
     </PageLayout>

@@ -1,3 +1,4 @@
+const logger = require('../utils/logger');
 const { promisePool, TABLE_NAMES } = require('../config/database');
 
 /**
@@ -74,7 +75,7 @@ exports.getAllSims = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching SIMs:', error);
+    logger.error('Error fetching SIMs:', error);
     res.status(500).json({
       success: false,
       message: 'Error fetching SIM cards',
@@ -156,7 +157,7 @@ exports.getSimHistory = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching SIM history:', error);
+    logger.error('Error fetching SIM history:', error);
     res.status(500).json({
       success: false,
       message: 'Error fetching SIM history',

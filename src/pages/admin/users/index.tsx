@@ -31,6 +31,8 @@ import {
 import CheckIcon from "@mui/icons-material/Check";
 import CloseIcon from "@mui/icons-material/Close";
 import DeleteIcon from "@mui/icons-material/Delete";
+import VerifiedIcon from "@mui/icons-material/Verified";
+import HowToRegIcon from "@mui/icons-material/HowToReg";
 import { PageLayout } from "../../../components";
 import api from "../../../services/api";
 
@@ -79,6 +81,16 @@ export default function UsersManagementPage() {
       console.error("Error fetching users:", err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleVerify = async (userId: number, username: string) => {
+    try {
+      await api.post(`/users/${userId}/verify`);
+      setSuccessMessage(`User ${username} has been verified successfully!`);
+      fetchUsers();
+    } catch (err: any) {
+      setError(err.response?.data?.message || "Failed to verify user");
     }
   };
 
@@ -229,6 +241,36 @@ export default function UsersManagementPage() {
                 </TableCell>
                 {showActions && (
                   <TableCell align="right">
+                    {user.status === "pending_verification" && (
+                      <>
+                        <IconButton
+                          size="small"
+                          color="primary"
+                          onClick={() => handleVerify(user.id, user.username)}
+                          title="Verify Email (Move to Pending Approval)"
+                        >
+                          <VerifiedIcon />
+                        </IconButton>
+                        <IconButton
+                          size="small"
+                          color="success"
+                          onClick={() => handleApprove(user.id, user.username)}
+                          title="Approve Directly (Skip Verification)"
+                        >
+                          <HowToRegIcon />
+                        </IconButton>
+                        <IconButton
+                          size="small"
+                          color="error"
+                          onClick={() =>
+                            handleRejectClick(user.id, user.username)
+                          }
+                          title="Reject"
+                        >
+                          <CloseIcon />
+                        </IconButton>
+                      </>
+                    )}
                     {user.status === "pending_approval" && (
                       <>
                         <IconButton
@@ -251,7 +293,7 @@ export default function UsersManagementPage() {
                         </IconButton>
                       </>
                     )}
-                    {user.status !== "pending_approval" && (
+                    {user.status !== "pending_approval" && user.status !== "pending_verification" && (
                       <IconButton
                         size="small"
                         color="error"
@@ -308,6 +350,11 @@ export default function UsersManagementPage() {
           >
             <Tab label="All Users" />
             <Tab
+              label={`Pending Verification (${
+                filterUsers("pending_verification").length
+              })`}
+            />
+            <Tab
               label={`Pending Approval (${
                 filterUsers("pending_approval").length
               })`}
@@ -323,9 +370,11 @@ export default function UsersManagementPage() {
           <>
             {tabValue === 0 && renderUserTable(users)}
             {tabValue === 1 &&
+              renderUserTable(filterUsers("pending_verification"))}
+            {tabValue === 2 &&
               renderUserTable(filterUsers("pending_approval"))}
-            {tabValue === 2 && renderUserTable(filterUsers("active"))}
-            {tabValue === 3 && renderUserTable(filterUsers("rejected"))}
+            {tabValue === 3 && renderUserTable(filterUsers("active"))}
+            {tabValue === 4 && renderUserTable(filterUsers("rejected"))}
           </>
         )}
 

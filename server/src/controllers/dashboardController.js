@@ -1,3 +1,4 @@
+const logger = require('../utils/logger');
 const { promisePool, TABLE_NAMES } = require('../config/database');
 
 /**
@@ -82,12 +83,25 @@ exports.getDashboardStats = async (req, res) => {
     const capacityGB = capacity / 1024;
     const usedGB = used / 1024;
 
+    // Calculate projected monthly usage
+    const currentDay = now.getDate(); // Day of month (1-31)
+    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    const dailyAverage = monthlyUsageGB / currentDay;
+    const projectedUsageGB = dailyAverage * daysInMonth;
+
     res.json({
       success: true,
       data: {
         totalSims: simCount[0].totalSims,
         monthlyUsage: monthlyUsageGB.toFixed(2),
         monthlyUsageUnit: 'GB',
+        projectedUsage: projectedUsageGB.toFixed(2),
+        projectedUsageUnit: 'GB',
+        projectionData: {
+          daysElapsed: currentDay,
+          daysInMonth: daysInMonth,
+          dailyAverage: dailyAverage.toFixed(2)
+        },
         poolUtilization: {
           totalCapacity: capacityGB.toFixed(2),
           totalUsed: usedGB.toFixed(2),
@@ -99,7 +113,7 @@ exports.getDashboardStats = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching dashboard stats:', error);
+    logger.error('Error fetching dashboard stats:', error);
     res.status(500).json({
       success: false,
       message: 'Error fetching dashboard statistics',
@@ -160,7 +174,7 @@ exports.getTopConsumers = async (req, res) => {
       }))
     });
   } catch (error) {
-    console.error('Error fetching top consumers:', error);
+    logger.error('Error fetching top consumers:', error);
     res.status(500).json({
       success: false,
       message: 'Error fetching top consumers',
@@ -241,7 +255,7 @@ exports.getMonthlyComparison = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching monthly comparison:', error);
+    logger.error('Error fetching monthly comparison:', error);
     res.status(500).json({
       success: false,
       message: 'Error fetching monthly comparison data',

@@ -554,7 +554,7 @@ const ReportsPage: FC = () => {
       {/* Alerts Tab */}
       <TabPanel value={tabValue} index={3}>
         <Grid container spacing={3}>
-          <Grid item xs={12} md={4}>
+          <Grid item xs={12}>
             <Card>
               <CardContent>
                 <Typography variant="h6" gutterBottom>
@@ -562,7 +562,7 @@ const ReportsPage: FC = () => {
                 </Typography>
                 <Box sx={{ mt: 3 }}>
                   <Grid container spacing={2}>
-                    <Grid item xs={12}>
+                    <Grid item xs={12} sm={6} md={4}>
                       <TextField
                         fullWidth
                         label="Alert Threshold (%)"
@@ -575,33 +575,43 @@ const ReportsPage: FC = () => {
                         Alert when usage exceeds this percentage
                       </Typography>
                     </Grid>
-                    <Grid item xs={12}>
+                    <Grid item xs={12} sm={6} md={4}>
                       <Button
                         fullWidth
                         variant="contained"
                         color="warning"
                         onClick={handleFetchAlerts}
                         disabled={loading}
+                        sx={{ height: '56px' }}
                       >
                         Check Alerts
                       </Button>
                     </Grid>
+                    {alerts.length > 0 && (
+                      <Grid item xs={12} md={4}>
+                        <Box sx={{ 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          height: '56px',
+                          px: 2,
+                          bgcolor: 'error.light',
+                          color: 'error.contrastText',
+                          borderRadius: 1
+                        }}>
+                          <Typography variant="subtitle2" fontWeight="bold">
+                            {alerts.length} SIM card(s) exceeded threshold
+                          </Typography>
+                        </Box>
+                      </Grid>
+                    )}
                   </Grid>
-                  {alerts.length > 0 && (
-                    <Box sx={{ mt: 3 }}>
-                      <Divider sx={{ my: 2 }} />
-                      <Typography variant="subtitle2" color="error">
-                        {alerts.length} SIM card(s) exceeded threshold
-                      </Typography>
-                    </Box>
-                  )}
                 </Box>
               </CardContent>
             </Card>
           </Grid>
 
-          {/* Alerts Table */}
-          <Grid item xs={12} md={8}>
+          {/* Alerts Table - Full Width Below */}
+          <Grid item xs={12}>
             {alerts.length > 0 ? (
               <Paper sx={{ p: { xs: 1, sm: 2 } }}>
                 <Typography variant="h6" gutterBottom color="error" sx={{ fontSize: { xs: '1rem', sm: '1.25rem' }, px: 1 }}>

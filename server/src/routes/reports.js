@@ -5,6 +5,7 @@ const reportController = require('../controllers/reportController');
 router.post('/custom', reportController.generateCustomReport);
 router.post('/dynamic', reportController.generateDynamicReport);
 router.get('/alerts', reportController.getAlerts);
+router.get('/projected-alerts', reportController.getProjectedAlerts);
 router.get('/monthly-usage', reportController.getMonthlyUsage);
 router.get('/metadata', reportController.getReportMetadata);
 

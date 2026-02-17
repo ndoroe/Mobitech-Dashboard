@@ -12,7 +12,7 @@ import {
   SelectChangeEvent,
 } from '@mui/material';
 import { BarChart } from '@mui/x-charts/BarChart';
-import axios from 'axios';
+import api from '../../services/api';
 
 interface MonthlyUsageData {
   month: string;
@@ -32,9 +32,7 @@ const MonthlyUsageReport: React.FC = () => {
   const fetchData = async (monthsBack: number) => {
     try {
       setLoading(true);
-      const response = await axios.get(
-        `${process.env.REACT_APP_API_URL || 'http://localhost:5000/api'}/reports/monthly-usage?months=${monthsBack}`
-      );
+      const response = await api.get(`/reports/monthly-usage?months=${monthsBack}`);
       if (response.data.success) {
         setData(response.data.data.monthlyUsage);
         setError(null);

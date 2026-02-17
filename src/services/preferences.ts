@@ -5,6 +5,9 @@ export interface UserPreferences {
   alerts_enabled: boolean;
   warning_threshold: number;
   critical_threshold: number;
+  projected_threshold: number;
+  email_alerts_enabled: boolean;
+  email_alert_time: string;
   warning_color: string;
   critical_color: string;
   created_at?: string;
@@ -15,6 +18,9 @@ export interface PreferencesUpdateRequest {
   alerts_enabled?: boolean;
   warning_threshold?: number;
   critical_threshold?: number;
+  projected_threshold?: number;
+  email_alerts_enabled?: boolean;
+  email_alert_time?: string;
   warning_color?: string;
   critical_color?: string;
 }
@@ -69,6 +75,9 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   alerts_enabled: true,
   warning_threshold: 60,
   critical_threshold: 80,
+  projected_threshold: 80,
+  email_alerts_enabled: false,
+  email_alert_time: '09:00',
   warning_color: '#ed6c02',
   critical_color: '#d32f2f',
 };

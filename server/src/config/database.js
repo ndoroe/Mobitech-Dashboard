@@ -1,45 +1,21 @@
 const mysql = require('mysql2');
 const path = require('path');
-const fs = require('fs');
+const logger = require('../utils/logger');
 
-// Debug: Check .env file existence and path
 const envPath = path.join(__dirname, '../../.env');
-console.log('🔍 Looking for .env at:', envPath);
-console.log('🔍 .env exists:', fs.existsSync(envPath));
-
-// Debug: Read the actual file content
-const envContent = fs.readFileSync(envPath, 'utf8');
-console.log('🔍 Raw .env file content:');
-console.log('---START---');
-console.log(envContent);
-console.log('---END---');
-console.log('🔍 Contains USE_TEST_DATA:', envContent.includes('USE_TEST_DATA'));
-
-require('dotenv').config({ path: envPath });
-
-// Debug: Print all env vars
-console.log('🔍 All relevant env vars:', {
-  USE_TEST_DATA: process.env.USE_TEST_DATA,
-  DB_HOST: process.env.DB_HOST,
-  DB_NAME: process.env.DB_NAME
-});
+require('dotenv').config({ path: envPath, override: true });
 
 // Table name configuration based on test mode
-console.log('🔍 DEBUG - USE_TEST_DATA env value:', process.env.USE_TEST_DATA, 'Type:', typeof process.env.USE_TEST_DATA);
 const USE_TEST_DATA = process.env.USE_TEST_DATA === 'true';
 const TABLE_NAMES = {
   assets: USE_TEST_DATA ? 'assets_test' : 'assets',
   data: USE_TEST_DATA ? 'Data_test' : 'Data'
 };
 
-console.log('🔍 Database Config:');
-console.log('  Host:', process.env.DB_HOST);
-console.log('  Port:', process.env.DB_PORT);
-console.log('  User:', process.env.DB_USER);
-console.log('  Database:', process.env.DB_NAME);
-console.log('  Password length:', process.env.DB_PASSWORD ? process.env.DB_PASSWORD.length : 0);
-console.log('  Test Mode:', USE_TEST_DATA ? '✅ ENABLED (using *_test tables)' : '❌ DISABLED (using production tables)');
-console.log('  Tables:', TABLE_NAMES);
+logger.info('Database Config:');
+logger.info('  Host:', process.env.DB_HOST);
+logger.info('  Database:', process.env.DB_NAME);
+logger.info('  Test Mode:', USE_TEST_DATA ? 'ENABLED (using *_test tables)' : 'DISABLED (using production tables)');
 
 // Create connection pool
 const pool = mysql.createPool({
@@ -62,10 +38,10 @@ const promisePool = pool.promise();
 // Test connection
 pool.getConnection((err, connection) => {
   if (err) {
-    console.error('❌ Database connection failed:', err.message);
+    logger.error('Database connection failed:', err.message);
     return;
   }
-  console.log('✅ Database connected successfully');
+  logger.info('Database connected successfully');
   connection.release();
 });
 

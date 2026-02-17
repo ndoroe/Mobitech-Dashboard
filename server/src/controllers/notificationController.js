@@ -1,3 +1,4 @@
+const logger = require('../utils/logger');
 const { promisePool } = require('../config/database');
 
 /**
@@ -33,7 +34,7 @@ async function getNotifications(req, res) {
     });
 
   } catch (error) {
-    console.error('Get notifications error:', error);
+    logger.error('Get notifications error:', error);
     res.status(500).json({
       success: false,
       message: 'An error occurred while fetching notifications.',
@@ -61,7 +62,7 @@ async function getNotificationCount(req, res) {
     });
 
   } catch (error) {
-    console.error('Get notification count error:', error);
+    logger.error('Get notification count error:', error);
     res.status(500).json({
       success: false,
       message: 'An error occurred while fetching notification count.',
@@ -104,7 +105,7 @@ async function markAsRead(req, res) {
     });
 
   } catch (error) {
-    console.error('Mark as read error:', error);
+    logger.error('Mark as read error:', error);
     res.status(500).json({
       success: false,
       message: 'An error occurred while marking notification as read.',
@@ -132,7 +133,7 @@ async function markAllAsRead(req, res) {
     });
 
   } catch (error) {
-    console.error('Mark all as read error:', error);
+    logger.error('Mark all as read error:', error);
     res.status(500).json({
       success: false,
       message: 'An error occurred while marking notifications as read.',
@@ -172,10 +173,39 @@ async function deleteNotification(req, res) {
     });
 
   } catch (error) {
-    console.error('Delete notification error:', error);
+    logger.error('Delete notification error:', error);
     res.status(500).json({
       success: false,
       message: 'An error occurred while deleting notification.',
+      error: error.message
+    });
+  }
+}
+
+/**
+ * Clear all read notifications
+ * DELETE /api/notifications/clear-read
+ */
+async function clearReadNotifications(req, res) {
+  try {
+    const userId = req.user.id;
+
+    const [result] = await promisePool.query(
+      'DELETE FROM admin_notifications WHERE admin_id = ? AND `read` = true',
+      [userId]
+    );
+
+    res.json({
+      success: true,
+      message: 'Read notifications cleared.',
+      deletedCount: result.affectedRows
+    });
+
+  } catch (error) {
+    logger.error('Clear read notifications error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'An error occurred while clearing notifications.',
       error: error.message
     });
   }
@@ -186,5 +216,6 @@ module.exports = {
   getNotificationCount,
   markAsRead,
   markAllAsRead,
-  deleteNotification
+  deleteNotification,
+  clearReadNotifications
 };

@@ -1,3 +1,4 @@
+const logger = require('../utils/logger');
 const { promisePool } = require('../config/database');
 const {
   hashPassword,
@@ -148,7 +149,7 @@ async function register(req, res) {
     });
 
   } catch (error) {
-    console.error('Registration error:', error);
+    logger.error('Registration error:', error);
     res.status(500).json({
       success: false,
       message: 'An error occurred during registration.',
@@ -219,7 +220,7 @@ async function verifyEmail(req, res) {
     // Send email notifications to all admins
     const emailPromises = admins.map(admin => 
       sendAdminNotification(admin.email, user.email, user.username)
-        .catch(err => console.error(`Failed to send email to admin ${admin.email}:`, err))
+        .catch(err => logger.error(`Failed to send email to admin ${admin.email}:`, err))
     );
 
     // Create in-app notifications for all admins
@@ -233,7 +234,7 @@ async function verifyEmail(req, res) {
           'new_registration',
           `New user ${user.username} (${user.email}) has verified their email and is awaiting approval.`
         ]
-      ).catch(err => console.error(`Failed to create notification for admin ${admin.id}:`, err))
+      ).catch(err => logger.error(`Failed to create notification for admin ${admin.id}:`, err))
     );
 
     // Wait for all notifications to be sent (but don't fail if some fail)
@@ -245,7 +246,7 @@ async function verifyEmail(req, res) {
     });
 
   } catch (error) {
-    console.error('Email verification error:', error);
+    logger.error('Email verification error:', error);
     res.status(500).json({
       success: false,
       message: 'An error occurred during email verification.',
@@ -340,7 +341,7 @@ async function login(req, res) {
     });
 
   } catch (error) {
-    console.error('Login error:', error);
+    logger.error('Login error:', error);
     res.status(500).json({
       success: false,
       message: 'An error occurred during login.',
@@ -362,7 +363,7 @@ async function logout(req, res) {
       message: 'Logout successful.'
     });
   } catch (error) {
-    console.error('Logout error:', error);
+    logger.error('Logout error:', error);
     res.status(500).json({
       success: false,
       message: 'An error occurred during logout.',
@@ -429,7 +430,7 @@ async function resendVerification(req, res) {
     });
 
   } catch (error) {
-    console.error('Resend verification error:', error);
+    logger.error('Resend verification error:', error);
     res.status(500).json({
       success: false,
       message: 'An error occurred while resending verification email.',
@@ -463,7 +464,7 @@ async function getCurrentUser(req, res) {
     });
 
   } catch (error) {
-    console.error('Get current user error:', error);
+    logger.error('Get current user error:', error);
     res.status(500).json({
       success: false,
       message: 'An error occurred while fetching user data.',
@@ -537,7 +538,7 @@ async function forgotPassword(req, res) {
       message: 'If an account with this email exists, a password reset link has been sent.'
     });
   } catch (error) {
-    console.error('Forgot password error:', error);
+    logger.error('Forgot password error:', error);
     res.status(500).json({
       success: false,
       message: 'An error occurred while processing your request.',
@@ -623,7 +624,7 @@ async function resetPassword(req, res) {
       message: 'Password has been reset successfully. You can now log in with your new password.'
     });
   } catch (error) {
-    console.error('Reset password error:', error);
+    logger.error('Reset password error:', error);
     res.status(500).json({
       success: false,
       message: 'An error occurred while resetting password.',

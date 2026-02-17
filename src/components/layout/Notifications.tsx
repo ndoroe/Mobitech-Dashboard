@@ -42,6 +42,7 @@ export const Notifications: FC<Props> = ({ color, ...props }) => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [alertCount, setAlertCount] = useState(0);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [readCount, setReadCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const open = Boolean(anchorEl);
   const navigate = useNavigate();
@@ -81,6 +82,20 @@ export const Notifications: FC<Props> = ({ color, ...props }) => {
 
   const fetchAlertCount = async () => {
     try {
+      // Check if alerts were recently dismissed
+      const dismissedAt = localStorage.getItem('alerts_dismissed_at');
+      if (dismissedAt) {
+        const dismissedTime = new Date(dismissedAt).getTime();
+        const now = new Date().getTime();
+        const hoursSinceDismissal = (now - dismissedTime) / (1000 * 60 * 60);
+        
+        // Keep alerts dismissed for 6 hours
+        if (hoursSinceDismissal < 6) {
+          setAlertCount(0);
+          return;
+        }
+      }
+      
       const alertSummary = await notificationService.getAlertSummary();
       setAlertCount(alertSummary.count || 0);
     } catch (error) {
@@ -97,6 +112,10 @@ export const Notifications: FC<Props> = ({ color, ...props }) => {
         params: { limit: 10 },
       });
       setNotifications(response.data.data || []);
+      
+      // Count read notifications
+      const readNotifications = (response.data.data || []).filter((n: Notification) => n.read);
+      setReadCount(readNotifications.length);
     } catch (error) {
       console.error("Error fetching notifications:", error);
     } finally {
@@ -141,6 +160,22 @@ export const Notifications: FC<Props> = ({ color, ...props }) => {
       await fetchNotifications();
     } catch (error) {
       console.error("Error marking all as read:", error);
+    }
+  };
+
+  const handleClearRead = async () => {
+    try {
+      // Clear admin notifications
+      await api.delete("/notifications/clear-read");
+      await fetchUnreadCount();
+      await fetchNotifications();
+      
+      // Also dismiss alert notifications
+      setAlertCount(0);
+      // Store dismissal with current timestamp
+      localStorage.setItem('alerts_dismissed_at', new Date().toISOString());
+    } catch (error) {
+      console.error("Error clearing read notifications:", error);
     }
   };
 
@@ -190,19 +225,34 @@ export const Notifications: FC<Props> = ({ color, ...props }) => {
                 <Typography variant="body2">
                   {unreadCount} Unread Notification{unreadCount !== 1 ? "s" : ""}
                 </Typography>
-                {unreadCount > 0 && (
+                <Box display="flex" gap={1.5}>
+                  {unreadCount > 0 && (
+                    <Typography
+                      variant="caption"
+                      color="primary"
+                      sx={{ cursor: "pointer" }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleMarkAllAsRead();
+                      }}
+                    >
+                      Mark all read
+                    </Typography>
+                  )}
                   <Typography
                     variant="caption"
-                    color="primary"
-                    sx={{ cursor: "pointer" }}
+                    color={readCount > 0 || alertCount > 0 ? "error" : "text.disabled"}
+                    sx={{ cursor: readCount > 0 || alertCount > 0 ? "pointer" : "default" }}
                     onClick={(e) => {
-                      e.stopPropagation();
-                      handleMarkAllAsRead();
+                      if (readCount > 0 || alertCount > 0) {
+                        e.stopPropagation();
+                        handleClearRead();
+                      }
                     }}
                   >
-                    Mark all read
+                    Clear all
                   </Typography>
-                )}
+                </Box>
               </Box>
             </ListItemText>
           </MenuItem>
@@ -286,20 +336,6 @@ export const Notifications: FC<Props> = ({ color, ...props }) => {
                 </Box>
               </MenuItem>
             ))}
-
-          <Divider />
-          <MenuItem
-            onClick={() => {
-              navigate("/admin/users");
-              handleClose();
-            }}
-          >
-            <ListItemText sx={{ textAlign: "center" }}>
-              <Typography variant="body2" color="primary">
-                View All Users
-              </Typography>
-            </ListItemText>
-          </MenuItem>
         </MenuList>
       </Menu>
     </>

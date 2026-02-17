@@ -1,3 +1,4 @@
+const logger = require('../utils/logger');
 const { promisePool, TABLE_NAMES } = require('../config/database');
 const { buildReportQuery, FIELD_METADATA, OPERATORS } = require('../utils/queryBuilder');
 
@@ -92,7 +93,7 @@ exports.generateCustomReport = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error generating report:', error);
+    logger.error('Error generating report:', error);
     res.status(500).json({
       success: false,
       message: 'Error generating report',
@@ -143,10 +144,113 @@ exports.getAlerts = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching alerts:', error);
+    logger.error('Error fetching alerts:', error);
     res.status(500).json({
       success: false,
       message: 'Error fetching alerts',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Get projected usage alerts
+ * Calculates end-of-month projected usage based on current usage rate
+ */
+exports.getProjectedAlerts = async (req, res) => {
+  try {
+    const threshold = parseFloat(req.query.threshold) || 0.8;
+
+    // Get current date info
+    const now = new Date();
+    const currentDay = now.getDate();
+    const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    const totalDaysInMonth = lastDayOfMonth.getDate();
+    const daysElapsed = currentDay;
+    const daysRemaining = totalDaysInMonth - currentDay;
+
+    // Get first record of the month and latest record for each SIM
+    const [projectedAlerts] = await promisePool.query(
+      `SELECT 
+        latest.iccid,
+        latest.msisdn,
+        latest.dataUsed as currentDataUsed,
+        latest.dataSize,
+        first.dataUsed as monthStartUsed,
+        latest.lastConnection,
+        (latest.dataUsed - first.dataUsed) as usedThisMonth,
+        ((latest.dataUsed - first.dataUsed) / ?) * ? as projectedUsage,
+        (((latest.dataUsed - first.dataUsed) / ?) * ? / NULLIF(latest.dataSize, 0) * 100) as projectedPercent
+       FROM (
+         SELECT 
+           d1.iccid,
+           d1.msisdn,
+           CAST(d1.dataUsed AS DECIMAL(15,2)) as dataUsed,
+           CAST(d1.dataSize AS DECIMAL(15,2)) as dataSize,
+           d1.lastConnection
+         FROM ${TABLE_NAMES.data} d1
+         INNER JOIN (
+           SELECT iccid, MAX(id) as maxId
+           FROM ${TABLE_NAMES.data}
+           GROUP BY iccid
+         ) maxIds ON d1.id = maxIds.maxId
+       ) latest
+       INNER JOIN (
+         SELECT 
+           d2.iccid,
+           CAST(d2.dataUsed AS DECIMAL(15,2)) as dataUsed
+         FROM ${TABLE_NAMES.data} d2
+         INNER JOIN (
+           SELECT iccid, MIN(id) as minId
+           FROM ${TABLE_NAMES.data}
+           WHERE createdTime >= ?
+           GROUP BY iccid
+         ) minIds ON d2.id = minIds.minId
+       ) first ON latest.iccid = first.iccid
+       WHERE (((latest.dataUsed - first.dataUsed) / ?) * ? / NULLIF(latest.dataSize, 0)) >= ?
+       ORDER BY projectedPercent DESC`,
+      [
+        daysElapsed, 
+        totalDaysInMonth,
+        daysElapsed, 
+        totalDaysInMonth,
+        firstDayOfMonth.toISOString().split('T')[0] + ' 00:00:00',
+        daysElapsed,
+        totalDaysInMonth,
+        threshold
+      ]
+    );
+
+    res.json({
+      success: true,
+      data: {
+        alerts: projectedAlerts.map(alert => ({
+          iccid: alert.iccid,
+          msisdn: alert.msisdn,
+          currentUsed: parseFloat(alert.currentDataUsed).toFixed(2),
+          dataSize: parseFloat(alert.dataSize).toFixed(2),
+          usedThisMonth: parseFloat(alert.usedThisMonth).toFixed(2),
+          projectedUsage: parseFloat(alert.projectedUsage).toFixed(2),
+          projectedPercent: parseFloat(alert.projectedPercent).toFixed(2),
+          currentPercent: ((parseFloat(alert.currentDataUsed) / parseFloat(alert.dataSize)) * 100).toFixed(2),
+          lastConnection: alert.lastConnection
+        })),
+        threshold: threshold * 100,
+        count: projectedAlerts.length,
+        billingCycle: {
+          daysElapsed,
+          totalDays: totalDaysInMonth,
+          daysRemaining,
+          month: firstDayOfMonth.toISOString().split('T')[0]
+        }
+      }
+    });
+  } catch (error) {
+    logger.error('Error fetching projected alerts:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching projected alerts',
       error: error.message
     });
   }
@@ -193,7 +297,7 @@ exports.generateDynamicReport = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error generating dynamic report:', error);
+    logger.error('Error generating dynamic report:', error);
     res.status(500).json({
       success: false,
       message: error.message || 'Error generating dynamic report',
@@ -260,7 +364,7 @@ exports.getMonthlyUsage = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching monthly usage:', error);
+    logger.error('Error fetching monthly usage:', error);
     res.status(500).json({
       success: false,
       message: 'Error fetching monthly usage data',
@@ -294,7 +398,7 @@ exports.getReportMetadata = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching report metadata:', error);
+    logger.error('Error fetching report metadata:', error);
     res.status(500).json({
       success: false,
       message: 'Error fetching report metadata',

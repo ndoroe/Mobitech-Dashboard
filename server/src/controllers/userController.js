@@ -1,3 +1,4 @@
+const logger = require('../utils/logger');
 const { promisePool } = require('../config/database');
 const { sendApprovalEmail, sendRejectionEmail } = require('../utils/emailService');
 
@@ -33,7 +34,7 @@ async function listUsers(req, res) {
     });
 
   } catch (error) {
-    console.error('List users error:', error);
+    logger.error('List users error:', error);
     res.status(500).json({
       success: false,
       message: 'An error occurred while fetching users.',
@@ -63,7 +64,7 @@ async function getPendingApprovals(req, res) {
     });
 
   } catch (error) {
-    console.error('Get pending approvals error:', error);
+    logger.error('Get pending approvals error:', error);
     res.status(500).json({
       success: false,
       message: 'An error occurred while fetching pending approvals.',
@@ -96,16 +97,17 @@ async function approveUser(req, res) {
 
     const user = users[0];
 
-    if (user.status !== 'pending_approval') {
+    // Allow approval from both pending_verification and pending_approval statuses
+    if (user.status !== 'pending_approval' && user.status !== 'pending_verification') {
       return res.status(400).json({
         success: false,
-        message: 'User is not pending approval.'
+        message: 'User is not pending verification or approval.'
       });
     }
 
-    // Update user status to active
+    // Update user status to active and clear verification token if exists
     await promisePool.query(
-      'UPDATE users SET status = ? WHERE id = ?',
+      'UPDATE users SET status = ?, verification_token = NULL, verification_expires = NULL WHERE id = ?',
       ['active', id]
     );
 
@@ -118,7 +120,7 @@ async function approveUser(req, res) {
 
     // Send approval email to user
     await sendApprovalEmail(user.email, user.username)
-      .catch(err => console.error('Failed to send approval email:', err));
+      .catch(err => logger.error('Failed to send approval email:', err));
 
     res.json({
       success: true,
@@ -132,10 +134,79 @@ async function approveUser(req, res) {
     });
 
   } catch (error) {
-    console.error('Approve user error:', error);
+    logger.error('Approve user error:', error);
     res.status(500).json({
       success: false,
       message: 'An error occurred while approving user.',
+      error: error.message
+    });
+  }
+}
+
+/**
+ * Manually verify a user's email (admin only)
+ * POST /api/users/:id/verify
+ */
+async function verifyUser(req, res) {
+  try {
+    const { id } = req.params;
+    const adminId = req.user.id;
+
+    // Get user details
+    const [users] = await promisePool.query(
+      'SELECT id, username, email, status FROM users WHERE id = ?',
+      [id]
+    );
+
+    if (users.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found.'
+      });
+    }
+
+    const user = users[0];
+
+    if (user.status !== 'pending_verification') {
+      return res.status(400).json({
+        success: false,
+        message: 'User is not pending verification.'
+      });
+    }
+
+    // Update user status to pending_approval and clear verification token
+    await promisePool.query(
+      'UPDATE users SET status = ?, verification_token = NULL, verification_expires = NULL WHERE id = ?',
+      ['pending_approval', id]
+    );
+
+    // Create admin notification for approval needed
+    await promisePool.query(
+      `INSERT INTO admin_notifications (user_id, type, message)
+       VALUES (?, ?, ?)`,
+      [
+        id,
+        'user_verified',
+        `User ${user.username} has been manually verified by admin and is awaiting approval.`
+      ]
+    );
+
+    res.json({
+      success: true,
+      message: 'User verified successfully. User is now pending approval.',
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        status: 'pending_approval'
+      }
+    });
+
+  } catch (error) {
+    logger.error('Verify user error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'An error occurred while verifying user.',
       error: error.message
     });
   }
@@ -166,10 +237,11 @@ async function rejectUser(req, res) {
 
     const user = users[0];
 
-    if (user.status !== 'pending_approval') {
+    // Allow rejection from both pending_verification and pending_approval statuses
+    if (user.status !== 'pending_approval' && user.status !== 'pending_verification') {
       return res.status(400).json({
         success: false,
-        message: 'User is not pending approval.'
+        message: 'User is not pending verification or approval.'
       });
     }
 
@@ -188,7 +260,7 @@ async function rejectUser(req, res) {
 
     // Send rejection email to user
     await sendRejectionEmail(user.email, user.username, reason)
-      .catch(err => console.error('Failed to send rejection email:', err));
+      .catch(err => logger.error('Failed to send rejection email:', err));
 
     res.json({
       success: true,
@@ -202,7 +274,7 @@ async function rejectUser(req, res) {
     });
 
   } catch (error) {
-    console.error('Reject user error:', error);
+    logger.error('Reject user error:', error);
     res.status(500).json({
       success: false,
       message: 'An error occurred while rejecting user.',
@@ -266,7 +338,7 @@ async function updateUserRole(req, res) {
     });
 
   } catch (error) {
-    console.error('Update user role error:', error);
+    logger.error('Update user role error:', error);
     res.status(500).json({
       success: false,
       message: 'An error occurred while updating user role.',
@@ -313,7 +385,7 @@ async function deleteUser(req, res) {
     });
 
   } catch (error) {
-    console.error('Delete user error:', error);
+    logger.error('Delete user error:', error);
     res.status(500).json({
       success: false,
       message: 'An error occurred while deleting user.',
@@ -360,7 +432,7 @@ async function getUserById(req, res) {
     });
 
   } catch (error) {
-    console.error('Get user by ID error:', error);
+    logger.error('Get user by ID error:', error);
     res.status(500).json({
       success: false,
       message: 'An error occurred while fetching user details.',
@@ -373,6 +445,7 @@ module.exports = {
   listUsers,
   getPendingApprovals,
   approveUser,
+  verifyUser,
   rejectUser,
   updateUserRole,
   deleteUser,

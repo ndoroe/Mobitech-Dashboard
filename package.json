@@ -2,7 +2,7 @@
   "name": "mobitech dashboard",
   "version": "0.1.0",
   "private": true,
-  "homepage": ".",
+  "homepage": "/",
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
@@ -13,7 +13,12 @@
     "server": "cd server && npm run dev",
     "client": "react-scripts start",
     "dev": "concurrently \"npm run server\" \"npm run client\"",
-    "build:all": "npm run build && cd server && npm install"
+    "build:all": "npm run build && cd server && npm install",
+    "start:prod": "cd server && node src/server.js",
+    "pm2:start": "pm2 start ecosystem.config.js --env production",
+    "pm2:stop": "pm2 stop mobitech-sim-dashboard",
+    "pm2:restart": "pm2 restart mobitech-sim-dashboard",
+    "pm2:logs": "pm2 logs mobitech-sim-dashboard"
   },
   "dependencies": {
     "@emotion/react": "^11.11.4",

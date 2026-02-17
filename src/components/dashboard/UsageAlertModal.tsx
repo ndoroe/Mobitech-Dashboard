@@ -25,6 +25,8 @@ export interface AlertSim {
   dataSize: string;
   usagePercent: string;
   lastConnection: string | null;
+  isProjected?: boolean;
+  projectedPercent?: string;
 }
 
 interface UsageAlertModalProps {
@@ -156,6 +158,15 @@ export const UsageAlertModal: FC<UsageAlertModalProps> = ({
                         fontWeight: 'bold',
                       }}
                     />
+                    {alert.isProjected && alert.projectedPercent && (
+                      <Chip
+                        label={`Projected: ${alert.projectedPercent}%`}
+                        size="small"
+                        color="warning"
+                        icon={<IconAlertTriangle size={14} />}
+                        sx={{ fontWeight: 'bold' }}
+                      />
+                    )}
                     <Chip
                       label={getAlertLevel(alert.usagePercent)}
                       size="small"
@@ -173,6 +184,11 @@ export const UsageAlertModal: FC<UsageAlertModalProps> = ({
                     <Typography variant="body2" color="text.secondary">
                       Usage: {alert.dataUsed} MB / {alert.dataSize} MB
                     </Typography>
+                    {alert.isProjected && alert.projectedPercent && (
+                      <Typography variant="body2" sx={{ color: 'warning.main', fontWeight: 'medium' }}>
+                        ⚠️ Projected to reach {alert.projectedPercent}% by month end
+                      </Typography>
+                    )}
                     {alert.lastConnection && (
                       <Typography variant="caption" color="text.secondary">
                         Last Connection:{' '}
@@ -228,6 +244,15 @@ export const UsageAlertModal: FC<UsageAlertModalProps> = ({
                             fontWeight: 'bold',
                           }}
                         />
+                        {alert.isProjected && alert.projectedPercent && (
+                          <Chip
+                            label={`Projected: ${alert.projectedPercent}%`}
+                            size="small"
+                            color="warning"
+                            icon={<IconAlertTriangle size={14} />}
+                            sx={{ fontWeight: 'bold' }}
+                          />
+                        )}
                         <Chip
                           label={getAlertLevel(alert.usagePercent)}
                           size="small"
@@ -245,6 +270,11 @@ export const UsageAlertModal: FC<UsageAlertModalProps> = ({
                         <Typography variant="body2" color="text.secondary">
                           Usage: {alert.dataUsed} MB / {alert.dataSize} MB
                         </Typography>
+                        {alert.isProjected && alert.projectedPercent && (
+                          <Typography variant="body2" sx={{ color: 'warning.main', fontWeight: 'medium' }}>
+                            ⚠️ Projected to reach {alert.projectedPercent}% by month end
+                          </Typography>
+                        )}
                         {alert.lastConnection && (
                           <Typography variant="caption" color="text.secondary">
                             Last Connection:{' '}

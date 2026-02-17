@@ -1,3 +1,4 @@
+const logger = require('../utils/logger');
 const { promisePool: db } = require('../config/database');
 
 /**
@@ -14,6 +15,9 @@ exports.getPreferences = async (req, res) => {
         alerts_enabled,
         warning_threshold,
         critical_threshold,
+        projected_threshold,
+        email_alerts_enabled,
+        email_alert_time,
         warning_color,
         critical_color,
         created_at,
@@ -33,6 +37,9 @@ exports.getPreferences = async (req, res) => {
           alerts_enabled: true,
           warning_threshold: 60.00,
           critical_threshold: 80.00,
+          projected_threshold: 80.00,
+          email_alerts_enabled: false,
+          email_alert_time: '09:00:00',
           warning_color: '#ed6c02',
           critical_color: '#d32f2f'
         }
@@ -44,7 +51,7 @@ exports.getPreferences = async (req, res) => {
       data: results[0]
     });
   } catch (error) {
-    console.error('Error fetching preferences:', error);
+    logger.error('Error fetching preferences:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to fetch preferences',
@@ -64,6 +71,9 @@ exports.updatePreferences = async (req, res) => {
       alerts_enabled,
       warning_threshold,
       critical_threshold,
+      projected_threshold,
+      email_alerts_enabled,
+      email_alert_time,
       warning_color,
       critical_color
     } = req.body;
@@ -86,6 +96,16 @@ exports.updatePreferences = async (req, res) => {
         return res.status(400).json({
           success: false,
           message: 'Critical threshold must be between 0 and 100'
+        });
+      }
+    }
+
+    // Validate projected threshold
+    if (projected_threshold !== undefined) {
+      if (projected_threshold < 0 || projected_threshold > 100) {
+        return res.status(400).json({
+          success: false,
+          message: 'Projected threshold must be between 0 and 100'
         });
       }
     }
@@ -115,14 +135,17 @@ exports.updatePreferences = async (req, res) => {
       // Insert new preferences
       const insertQuery = `
         INSERT INTO user_preferences 
-        (user_email, alerts_enabled, warning_threshold, critical_threshold, warning_color, critical_color)
-        VALUES (?, ?, ?, ?, ?, ?)
+        (user_email, alerts_enabled, warning_threshold, critical_threshold, projected_threshold, email_alerts_enabled, email_alert_time, warning_color, critical_color)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       `;
       await db.query(insertQuery, [
         userEmail,
         alerts_enabled !== undefined ? alerts_enabled : true,
         warning_threshold !== undefined ? warning_threshold : 60.00,
         critical_threshold !== undefined ? critical_threshold : 80.00,
+        projected_threshold !== undefined ? projected_threshold : 80.00,
+        email_alerts_enabled !== undefined ? email_alerts_enabled : false,
+        email_alert_time || '09:00:00',
         warning_color || '#ed6c02',
         critical_color || '#d32f2f'
       ]);
@@ -134,6 +157,9 @@ exports.updatePreferences = async (req, res) => {
           alerts_enabled = COALESCE(?, alerts_enabled),
           warning_threshold = COALESCE(?, warning_threshold),
           critical_threshold = COALESCE(?, critical_threshold),
+          projected_threshold = COALESCE(?, projected_threshold),
+          email_alerts_enabled = COALESCE(?, email_alerts_enabled),
+          email_alert_time = COALESCE(?, email_alert_time),
           warning_color = COALESCE(?, warning_color),
           critical_color = COALESCE(?, critical_color),
           updated_at = CURRENT_TIMESTAMP
@@ -143,6 +169,9 @@ exports.updatePreferences = async (req, res) => {
         alerts_enabled,
         warning_threshold,
         critical_threshold,
+        projected_threshold,
+        email_alerts_enabled,
+        email_alert_time,
         warning_color,
         critical_color,
         userEmail
@@ -161,7 +190,7 @@ exports.updatePreferences = async (req, res) => {
       data: updated[0]
     });
   } catch (error) {
-    console.error('Error updating preferences:', error);
+    logger.error('Error updating preferences:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to update preferences',
@@ -184,6 +213,9 @@ exports.resetPreferences = async (req, res) => {
         alerts_enabled = TRUE,
         warning_threshold = 60.00,
         critical_threshold = 80.00,
+        projected_threshold = 80.00,
+        email_alerts_enabled = FALSE,
+        email_alert_time = '09:00:00',
         warning_color = '#ed6c02',
         critical_color = '#d32f2f',
         updated_at = CURRENT_TIMESTAMP
@@ -204,7 +236,7 @@ exports.resetPreferences = async (req, res) => {
       data: updated[0]
     });
   } catch (error) {
-    console.error('Error resetting preferences:', error);
+    logger.error('Error resetting preferences:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to reset preferences',

@@ -39,6 +39,9 @@ CREATE TABLE `user_preferences` (
   `alerts_enabled` BOOLEAN DEFAULT TRUE COMMENT 'Enable/disable alert notifications',
   `warning_threshold` DECIMAL(5,2) DEFAULT 60.00 COMMENT 'Warning threshold percentage (60-80%)',
   `critical_threshold` DECIMAL(5,2) DEFAULT 80.00 COMMENT 'Critical threshold percentage (80%+)',
+  `projected_threshold` DECIMAL(5,2) DEFAULT 80.00 COMMENT 'Projected usage threshold percentage for end-of-month alerts',
+  `email_alerts_enabled` BOOLEAN DEFAULT FALSE COMMENT 'Enable/disable daily email alert reports',
+  `email_alert_time` TIME DEFAULT '09:00:00' COMMENT 'Time of day to send daily email alert reports',
   `warning_color` VARCHAR(7) DEFAULT '#ed6c02' COMMENT 'Hex color for warning alerts (orange)',
   `critical_color` VARCHAR(7) DEFAULT '#d32f2f' COMMENT 'Hex color for critical alerts (red)',
   `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -47,8 +50,8 @@ CREATE TABLE `user_preferences` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Insert default preferences for demo user
-INSERT INTO user_preferences (user_email, alerts_enabled, warning_threshold, critical_threshold, warning_color, critical_color)
-VALUES ('admin@materialadminlte.com', TRUE, 60.00, 80.00, '#ed6c02', '#d32f2f');
+INSERT INTO user_preferences (user_email, alerts_enabled, warning_threshold, critical_threshold, projected_threshold, email_alerts_enabled, email_alert_time, warning_color, critical_color)
+VALUES ('admin@materialadminlte.com', TRUE, 60.00, 80.00, 80.00, FALSE, '09:00:00', '#ed6c02', '#d32f2f');
 
 -- Generate 100 test SIM cards with varied profiles
 DELIMITER $$

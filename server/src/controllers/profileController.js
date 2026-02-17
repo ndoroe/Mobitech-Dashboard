@@ -1,3 +1,4 @@
+const logger = require('../utils/logger');
 const { promisePool } = require('../config/database');
 const { hashPassword, verifyPassword, validatePassword } = require('../utils/authHelpers');
 const path = require('path');
@@ -26,7 +27,7 @@ async function getProfile(req, res) {
       user: users[0]
     });
   } catch (error) {
-    console.error('Get profile error:', error);
+    logger.error('Get profile error:', error);
     res.status(500).json({
       success: false,
       message: 'An error occurred while fetching profile.',
@@ -104,7 +105,7 @@ async function changePassword(req, res) {
       message: 'Password changed successfully.'
     });
   } catch (error) {
-    console.error('Change password error:', error);
+    logger.error('Change password error:', error);
     res.status(500).json({
       success: false,
       message: 'An error occurred while changing password.',
@@ -149,7 +150,7 @@ async function uploadAvatar(req, res) {
       try {
         await fs.unlink(oldFilePath);
       } catch (err) {
-        console.error('Failed to delete old avatar:', err);
+        logger.error('Failed to delete old avatar:', err);
       }
     }
 
@@ -159,7 +160,7 @@ async function uploadAvatar(req, res) {
       avatar: avatarPath
     });
   } catch (error) {
-    console.error('Upload avatar error:', error);
+    logger.error('Upload avatar error:', error);
     res.status(500).json({
       success: false,
       message: 'An error occurred while uploading avatar.',
@@ -194,7 +195,7 @@ async function deleteAvatar(req, res) {
       try {
         await fs.unlink(filePath);
       } catch (err) {
-        console.error('Failed to delete avatar file:', err);
+        logger.error('Failed to delete avatar file:', err);
       }
     }
 
@@ -203,7 +204,7 @@ async function deleteAvatar(req, res) {
       message: 'Avatar deleted successfully.'
     });
   } catch (error) {
-    console.error('Delete avatar error:', error);
+    logger.error('Delete avatar error:', error);
     res.status(500).json({
       success: false,
       message: 'An error occurred while deleting avatar.',

@@ -11,6 +11,7 @@ router.use(requireRole('admin'));
 router.get('/', userController.listUsers);
 router.get('/pending', userController.getPendingApprovals);
 router.get('/:id', userController.getUserById);
+router.post('/:id/verify', userController.verifyUser);
 router.post('/:id/approve', userController.approveUser);
 router.post('/:id/reject', userController.rejectUser);
 router.put('/:id/role', userController.updateUserRole);

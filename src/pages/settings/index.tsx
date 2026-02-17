@@ -41,6 +41,7 @@ const Settings: FC = () => {
   const [errors, setErrors] = useState<{
     warning_threshold?: string;
     critical_threshold?: string;
+    projected_threshold?: string;
   }>({});
 
   useEffect(() => {
@@ -86,6 +87,13 @@ const Settings: FC = () => {
       newErrors.critical_threshold = 'Must be between 0 and 100';
     }
 
+    if (
+      preferences.projected_threshold < 0 ||
+      preferences.projected_threshold > 100
+    ) {
+      newErrors.projected_threshold = 'Must be between 0 and 100';
+    }
+
     if (preferences.warning_threshold >= preferences.critical_threshold) {
       newErrors.warning_threshold = 'Must be less than critical threshold';
       newErrors.critical_threshold = 'Must be greater than warning threshold';
@@ -111,6 +119,9 @@ const Settings: FC = () => {
         alerts_enabled: preferences.alerts_enabled,
         warning_threshold: preferences.warning_threshold,
         critical_threshold: preferences.critical_threshold,
+        projected_threshold: preferences.projected_threshold,
+        email_alerts_enabled: preferences.email_alerts_enabled,
+        email_alert_time: preferences.email_alert_time,
         warning_color: preferences.warning_color,
         critical_color: preferences.critical_color,
       });
@@ -272,6 +283,34 @@ const Settings: FC = () => {
                   disabled={!preferences.alerts_enabled}
                 />
 
+                <TextField
+                  fullWidth
+                  label="Projected Usage Threshold"
+                  type="number"
+                  value={preferences.projected_threshold}
+                  onChange={(e) => {
+                    setPreferences({
+                      ...preferences,
+                      projected_threshold: parseFloat(e.target.value) || 0,
+                    });
+                    setErrors({ ...errors, projected_threshold: undefined });
+                  }}
+                  error={!!errors.projected_threshold}
+                  helperText={
+                    errors.projected_threshold ||
+                    'Alert when projected end-of-month usage equals or exceeds this percentage'
+                  }
+                  InputProps={{
+                    endAdornment: <InputAdornment position="end">%</InputAdornment>,
+                  }}
+                  inputProps={{
+                    min: 0,
+                    max: 100,
+                    step: 5,
+                  }}
+                  disabled={!preferences.alerts_enabled}
+                />
+
                 <Divider />
 
                 {/* Color Configuration */}
@@ -367,6 +406,58 @@ const Settings: FC = () => {
                     </Typography>
                   </Stack>
                 </Box>
+
+                <Divider />
+
+                {/* Email Alert Reports */}
+                <Typography variant="subtitle2" fontWeight="bold">
+                  Email Alert Reports
+                </Typography>
+
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={preferences.email_alerts_enabled}
+                      onChange={(e) =>
+                        setPreferences({
+                          ...preferences,
+                          email_alerts_enabled: e.target.checked,
+                        })
+                      }
+                    />
+                  }
+                  label={
+                    <Box>
+                      <Typography variant="body1">
+                        Receive Emailed Alert Reports
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        Get a daily email report of SIM usage alerts
+                      </Typography>
+                    </Box>
+                  }
+                />
+
+                <TextField
+                  fullWidth
+                  label="Report Delivery Time"
+                  type="time"
+                  value={preferences.email_alert_time}
+                  onChange={(e) => {
+                    setPreferences({
+                      ...preferences,
+                      email_alert_time: e.target.value,
+                    });
+                  }}
+                  helperText="Time of day to receive daily alert reports"
+                  InputLabelProps={{
+                    shrink: true,
+                  }}
+                  inputProps={{
+                    step: 300, // 5 min
+                  }}
+                  disabled={!preferences.email_alerts_enabled}
+                />
 
                 <Divider />
 

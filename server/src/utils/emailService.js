@@ -1,4 +1,5 @@
 const nodemailer = require('nodemailer');
+const logger = require('./logger');
 
 // Create reusable transporter
 const transporter = nodemailer.createTransport({
@@ -14,9 +15,9 @@ const transporter = nodemailer.createTransport({
 // Verify connection configuration
 transporter.verify(function (error, success) {
   if (error) {
-    console.error('Email service error:', error);
+    logger.error('Email service error:', error);
   } else {
-    console.log('Email service is ready to send messages');
+    logger.info('Email service is ready to send messages');
   }
 });
 
@@ -39,10 +40,10 @@ async function sendEmail({ to, subject, text, html }) {
     };
 
     const info = await transporter.sendMail(mailOptions);
-    console.log('Email sent:', info.messageId);
+    logger.info('Email sent:', info.messageId);
     return { success: true, messageId: info.messageId };
   } catch (error) {
-    console.error('Error sending email:', error);
+    logger.error('Error sending email:', error);
     throw error;
   }
 }
@@ -300,11 +301,171 @@ async function sendPasswordResetEmail(email, token, username) {
   return await sendEmail({ to: email, subject, html });
 }
 
+/**
+ * Send daily SIM usage alert report
+ * @param {string} email - User email
+ * @param {string} username - Username
+ * @param {Object} alertData - Alert data with counts and SIM details
+ */
+async function sendAlertReportEmail(email, username, alertData) {
+  const { currentAlerts = [], projectedAlerts = [], warningThreshold, criticalThreshold, projectedThreshold } = alertData;
+  const dashboardUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}`;
+  
+  const totalAlerts = currentAlerts.length + projectedAlerts.length;
+  
+  // Format usage percentage
+  const formatUsage = (usage) => `${(usage * 100).toFixed(1)}%`;
+  
+  // Generate current alerts HTML
+  const currentAlertsHtml = currentAlerts.length > 0 ? `
+    <h3 style="color: #d32f2f; margin-top: 30px;">🚨 Current Usage Alerts (${currentAlerts.length})</h3>
+    <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+      <thead>
+        <tr style="background-color: #f5f5f5;">
+          <th style="padding: 12px; text-align: left; border-bottom: 2px solid #ddd;">ICCID</th>
+          <th style="padding: 12px; text-align: left; border-bottom: 2px solid #ddd;">MSISDN</th>
+          <th style="padding: 12px; text-align: right; border-bottom: 2px solid #ddd;">Usage</th>
+          <th style="padding: 12px; text-align: center; border-bottom: 2px solid #ddd;">Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${currentAlerts.map((alert, index) => {
+          const isCritical = alert.usage_percentage >= criticalThreshold;
+          const statusColor = isCritical ? '#d32f2f' : '#ed6c02';
+          const statusText = isCritical ? 'CRITICAL' : 'WARNING';
+          const bgColor = index % 2 === 0 ? '#fff' : '#f9f9f9';
+          
+          return `
+            <tr style="background-color: ${bgColor};">
+              <td style="padding: 10px; border-bottom: 1px solid #eee;">${alert.iccid}</td>
+              <td style="padding: 10px; border-bottom: 1px solid #eee;">${alert.msisdn}</td>
+              <td style="padding: 10px; text-align: right; border-bottom: 1px solid #eee;"><strong>${formatUsage(alert.usage_percentage)}</strong></td>
+              <td style="padding: 10px; text-align: center; border-bottom: 1px solid #eee;">
+                <span style="background-color: ${statusColor}; color: white; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: bold;">${statusText}</span>
+              </td>
+            </tr>
+          `;
+        }).join('')}
+      </tbody>
+    </table>
+  ` : '<p style="color: #666; font-style: italic;">No current usage alerts</p>';
+  
+  // Generate projected alerts HTML
+  const projectedAlertsHtml = projectedAlerts.length > 0 ? `
+    <h3 style="color: #ed6c02; margin-top: 30px;">📊 Projected End-of-Month Alerts (${projectedAlerts.length})</h3>
+    <p style="color: #666; font-size: 14px; margin-bottom: 15px;">These SIMs are projected to exceed ${formatUsage(projectedThreshold)} by month end</p>
+    <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+      <thead>
+        <tr style="background-color: #f5f5f5;">
+          <th style="padding: 12px; text-align: left; border-bottom: 2px solid #ddd;">ICCID</th>
+          <th style="padding: 12px; text-align: left; border-bottom: 2px solid #ddd;">MSISDN</th>
+          <th style="padding: 12px; text-align: right; border-bottom: 2px solid #ddd;">Current</th>
+          <th style="padding: 12px; text-align: right; border-bottom: 2px solid #ddd;">Projected</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${projectedAlerts.map((alert, index) => {
+          const bgColor = index % 2 === 0 ? '#fff' : '#f9f9f9';
+          return `
+            <tr style="background-color: ${bgColor};">
+              <td style="padding: 10px; border-bottom: 1px solid #eee;">${alert.iccid}</td>
+              <td style="padding: 10px; border-bottom: 1px solid #eee;">${alert.msisdn}</td>
+              <td style="padding: 10px; text-align: right; border-bottom: 1px solid #eee;">${formatUsage(alert.usage_percentage)}</td>
+              <td style="padding: 10px; text-align: right; border-bottom: 1px solid #eee;"><strong style="color: #ed6c02;">${formatUsage(alert.projected_usage)}</strong></td>
+            </tr>
+          `;
+        }).join('')}
+      </tbody>
+    </table>
+  ` : '<p style="color: #666; font-style: italic;">No projected alerts</p>';
+  
+  const subject = totalAlerts > 0 ? 
+    `⚠️ SIM Alert Report: ${totalAlerts} Alert${totalAlerts !== 1 ? 's' : ''} Detected` :
+    '✓ SIM Alert Report: All Systems Normal';
+    
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 800px; margin: 0 auto; padding: 20px; }
+        .header { background: linear-gradient(135deg, #1976d2 0%, #1565c0 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
+        .content { background-color: #fff; padding: 30px; border: 1px solid #ddd; }
+        .summary { display: flex; justify-content: space-around; margin: 20px 0; }
+        .summary-box { background-color: #f5f5f5; padding: 20px; border-radius: 8px; text-align: center; flex: 1; margin: 0 10px; }
+        .summary-number { font-size: 32px; font-weight: bold; margin: 10px 0; }
+        .summary-label { color: #666; font-size: 14px; }
+        .button { display: inline-block; padding: 14px 32px; background-color: #1976d2; color: white; text-decoration: none; border-radius: 6px; margin: 20px 0; font-weight: bold; }
+        .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; background-color: #f5f5f5; border-radius: 0 0 8px 8px; }
+        .thresholds { background-color: #e3f2fd; padding: 15px; border-radius: 6px; margin: 20px 0; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>📱 Daily SIM Usage Alert Report</h1>
+          <p style="margin: 10px 0 0 0; font-size: 14px; opacity: 0.9;">${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+        </div>
+        <div class="content">
+          <p>Hello ${username},</p>
+          <p>Here's your daily SIM usage alert report:</p>
+          
+          <div class="summary">
+            <div class="summary-box">
+              <div class="summary-label">Current Alerts</div>
+              <div class="summary-number" style="color: ${currentAlerts.length > 0 ? '#d32f2f' : '#2e7d32'};">${currentAlerts.length}</div>
+            </div>
+            <div class="summary-box">
+              <div class="summary-label">Projected Alerts</div>
+              <div class="summary-number" style="color: ${projectedAlerts.length > 0 ? '#ed6c02' : '#2e7d32'};">${projectedAlerts.length}</div>
+            </div>
+            <div class="summary-box">
+              <div class="summary-label">Total Alerts</div>
+              <div class="summary-number" style="color: ${totalAlerts > 0 ? '#d32f2f' : '#2e7d32'};">${totalAlerts}</div>
+            </div>
+          </div>
+          
+          <div class="thresholds">
+            <strong>📊 Your Alert Thresholds:</strong><br/>
+            Warning: ${formatUsage(warningThreshold)} | 
+            Critical: ${formatUsage(criticalThreshold)} | 
+            Projected: ${formatUsage(projectedThreshold)}
+          </div>
+          
+          ${currentAlertsHtml}
+          
+          ${projectedAlertsHtml}
+          
+          <div style="text-align: center; margin-top: 40px;">
+            <a href="${dashboardUrl}" class="button">View Dashboard</a>
+          </div>
+          
+          <p style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd; color: #666; font-size: 13px;">
+            💡 <strong>Tip:</strong> You can adjust your alert thresholds and email preferences in the Settings page.
+          </p>
+        </div>
+        <div class="footer">
+          <p>&copy; ${new Date().getFullYear()} SIM Dashboard. All rights reserved.</p>
+          <p style="margin-top: 10px;">
+            To unsubscribe from these reports, disable "Email Alert Reports" in your 
+            <a href="${dashboardUrl}/settings" style="color: #1976d2;">Settings</a>.
+          </p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  return await sendEmail({ to: email, subject, html });
+}
+
 module.exports = {
   sendEmail,
   sendVerificationEmail,
   sendAdminNotification,
   sendApprovalEmail,
   sendRejectionEmail,
-  sendPasswordResetEmail
+  sendPasswordResetEmail,
+  sendAlertReportEmail
 };
