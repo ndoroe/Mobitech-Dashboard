@@ -134,6 +134,7 @@ async function fetchUserAlertData(user) {
         d.dataUsed as used_this_month,
         d.dataSize as capacity
       FROM ${TABLE_NAMES.data} d
+      INNER JOIN ${TABLE_NAMES.assets} a ON d.iccid = a.iccid
       WHERE (d.dataUsed / d.dataSize) >= ?
       ORDER BY (d.dataUsed / d.dataSize) DESC
       LIMIT 100
@@ -160,6 +161,7 @@ async function fetchUserAlertData(user) {
           ELSE 0 
         END as projected_usage
       FROM ${TABLE_NAMES.data} d
+      INNER JOIN ${TABLE_NAMES.assets} a ON d.iccid = a.iccid
       WHERE d.dataUsed > 0
         AND (d.dataUsed / d.dataSize) < ?
         AND (d.dataUsed / ?) * ? / d.dataSize >= ?

@@ -23,6 +23,7 @@ exports.getDashboardStats = async (req, res) => {
     );
 
     // Query 2: Monthly Total Usage (latest record per SIM for current month)
+    // Only include SIMs that exist in the assets table
     const [monthlyUsage] = await promisePool.query(
       `SELECT 
         COALESCE(SUM(CAST(d.dataUsed AS DECIMAL(15,2))), 0) as totalUsed
@@ -33,16 +34,12 @@ exports.getDashboardStats = async (req, res) => {
          WHERE createdTime >= ?
          GROUP BY iccid
        ) latest ON d.id = latest.maxId
-       WHERE d.id IN (
-         SELECT MAX(id)
-         FROM ${TABLE_NAMES.data}
-         WHERE createdTime >= ?
-         GROUP BY iccid
-       )`,
-      [firstDayStr, firstDayStr]
+       INNER JOIN ${TABLE_NAMES.assets} a ON d.iccid = a.iccid`,
+      [firstDayStr]
     );
 
     // Query 3: Pool Utilization (latest record per SIM)
+    // Only include SIMs that exist in the assets table
     const [poolData] = await promisePool.query(
       `SELECT 
         SUM(CAST(d.dataSize AS DECIMAL(15,2))) as totalCapacity,
@@ -52,10 +49,12 @@ exports.getDashboardStats = async (req, res) => {
          SELECT iccid, MAX(id) as maxId
          FROM ${TABLE_NAMES.data}
          GROUP BY iccid
-       ) latest ON d.id = latest.maxId`
+       ) latest ON d.id = latest.maxId
+       INNER JOIN ${TABLE_NAMES.assets} a ON d.iccid = a.iccid`
     );
 
     // Query 4: Count alerts (SIMs above threshold)
+    // Only include SIMs that exist in the assets table
     const [alerts] = await promisePool.query(
       `SELECT COUNT(*) as alertCount
        FROM (
@@ -68,6 +67,7 @@ exports.getDashboardStats = async (req, res) => {
            FROM ${TABLE_NAMES.data}
            GROUP BY iccid
          ) latest ON d.id = latest.maxId
+         INNER JOIN ${TABLE_NAMES.assets} a ON d.iccid = a.iccid
          HAVING usageRatio >= ?
        ) as alertSims`,
       [alertThreshold]
@@ -157,6 +157,7 @@ exports.getTopConsumers = async (req, res) => {
          WHERE ${subqueryCondition}
          GROUP BY iccid
        ) latest ON d.id = latest.maxId
+       INNER JOIN ${TABLE_NAMES.assets} a ON d.iccid = a.iccid
        ORDER BY totalUsed DESC
        LIMIT ?`,
       [limit]
@@ -204,25 +205,29 @@ exports.getMonthlyComparison = async (req, res) => {
     const formatDateEnd = (date) => date.toISOString().split('T')[0] + ' 23:59:59';
     
     // Query for last month data grouped by day
+    // Only include SIMs that exist in the assets table
     const [lastMonthData] = await promisePool.query(
       `SELECT 
-        DATE(createdTime) as date,
-        SUM(CAST(dataUsed AS DECIMAL(15,2))) as totalUsage
-       FROM ${TABLE_NAMES.data}
-       WHERE createdTime >= ? AND createdTime <= ?
-       GROUP BY DATE(createdTime)
+        DATE(d.createdTime) as date,
+        SUM(CAST(d.dataUsed AS DECIMAL(15,2))) as totalUsage
+       FROM ${TABLE_NAMES.data} d
+       INNER JOIN ${TABLE_NAMES.assets} a ON d.iccid = a.iccid
+       WHERE d.createdTime >= ? AND d.createdTime <= ?
+       GROUP BY DATE(d.createdTime)
        ORDER BY date ASC`,
       [formatDate(lastMonthStart), formatDateEnd(lastMonthEnd)]
     );
     
     // Query for current month data grouped by day
+    // Only include SIMs that exist in the assets table
     const [currentMonthData] = await promisePool.query(
       `SELECT 
-        DATE(createdTime) as date,
-        SUM(CAST(dataUsed AS DECIMAL(15,2))) as totalUsage
-       FROM ${TABLE_NAMES.data}
-       WHERE createdTime >= ? AND createdTime <= ?
-       GROUP BY DATE(createdTime)
+        DATE(d.createdTime) as date,
+        SUM(CAST(d.dataUsed AS DECIMAL(15,2))) as totalUsage
+       FROM ${TABLE_NAMES.data} d
+       INNER JOIN ${TABLE_NAMES.assets} a ON d.iccid = a.iccid
+       WHERE d.createdTime >= ? AND d.createdTime <= ?
+       GROUP BY DATE(d.createdTime)
        ORDER BY date ASC`,
       [formatDate(currentMonthStart), formatDateEnd(currentMonthEnd)]
     );

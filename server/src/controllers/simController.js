@@ -12,16 +12,25 @@ exports.getAllSims = async (req, res) => {
     const offset = (page - 1) * limit;
 
     const searchCondition = search 
-      ? `WHERE d.iccid LIKE ? OR d.msisdn LIKE ?` 
+      ? `WHERE (a.iccid LIKE ? OR d.msisdn LIKE ?)` 
       : '';
     const searchParams = search 
       ? [`%${search}%`, `%${search}%`] 
       : [];
 
-    // Get total count
+    // Get total count from assets table (source of truth)
     const [countResult] = await promisePool.query(
-      `SELECT COUNT(DISTINCT d.iccid) as total
-       FROM ${TABLE_NAMES.data} d
+      `SELECT COUNT(DISTINCT a.iccid) as total
+       FROM ${TABLE_NAMES.assets} a
+       LEFT JOIN (
+         SELECT d1.*
+         FROM ${TABLE_NAMES.data} d1
+         INNER JOIN (
+           SELECT iccid, MAX(id) as maxId
+           FROM ${TABLE_NAMES.data}
+           GROUP BY iccid
+         ) d2 ON d1.id = d2.maxId
+       ) d ON a.iccid = d.iccid
        ${searchCondition}`,
       searchParams
     );

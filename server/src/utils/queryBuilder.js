@@ -256,12 +256,14 @@ function buildReportQuery(options) {
   }
 
   // Handle unique ICCID - get latest record per ICCID
-  let fromClause = TABLE_NAMES.data;
+  let fromClause = `${TABLE_NAMES.data} d INNER JOIN ${TABLE_NAMES.assets} a ON d.iccid = a.iccid`;
+  let tableAlias = 'd';
   if (uniqueIccid && groupBy === 'none') {
     // Use subquery to get only the latest record per ICCID
     fromClause = `(
       SELECT d.*
       FROM ${TABLE_NAMES.data} d
+      INNER JOIN ${TABLE_NAMES.assets} a ON d.iccid = a.iccid
       INNER JOIN (
         SELECT iccid, MAX(createdTime) as maxTime
         FROM ${TABLE_NAMES.data}

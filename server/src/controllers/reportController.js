@@ -46,6 +46,7 @@ exports.generateCustomReport = async (req, res) => {
           d.lastConnection,
           d.createdTime
         FROM ${TABLE_NAMES.data} d
+        INNER JOIN ${TABLE_NAMES.assets} a ON d.iccid = a.iccid
         WHERE ${whereClause}
         ORDER BY d.createdTime DESC
         LIMIT 1000
@@ -60,6 +61,7 @@ exports.generateCustomReport = async (req, res) => {
           AVG(CAST(d.dataSize AS DECIMAL(15,2))) as avgDataSize,
           COUNT(*) as recordCount
         FROM ${TABLE_NAMES.data} d
+        INNER JOIN ${TABLE_NAMES.assets} a ON d.iccid = a.iccid
         WHERE ${whereClause}
         GROUP BY d.iccid, d.msisdn, DATE(d.createdTime)
         ORDER BY date DESC
@@ -75,6 +77,7 @@ exports.generateCustomReport = async (req, res) => {
           AVG(CAST(d.dataSize AS DECIMAL(15,2))) as avgDataSize,
           COUNT(*) as recordCount
         FROM ${TABLE_NAMES.data} d
+        INNER JOIN ${TABLE_NAMES.assets} a ON d.iccid = a.iccid
         WHERE ${whereClause}
         GROUP BY d.iccid, d.msisdn, DATE_FORMAT(d.createdTime, '%Y-%m')
         ORDER BY month DESC
@@ -123,6 +126,7 @@ exports.getAlerts = async (req, res) => {
          FROM ${TABLE_NAMES.data}
          GROUP BY iccid
        ) latest ON d.id = latest.maxId
+       INNER JOIN ${TABLE_NAMES.assets} a ON d.iccid = a.iccid
        WHERE (CAST(d.dataUsed AS DECIMAL(15,2)) / NULLIF(CAST(d.dataSize AS DECIMAL(15,2)), 0)) >= ?
        ORDER BY usagePercent DESC`,
       [threshold]
@@ -208,6 +212,7 @@ exports.getProjectedAlerts = async (req, res) => {
            GROUP BY iccid
          ) minIds ON d2.id = minIds.minId
        ) first ON latest.iccid = first.iccid
+       INNER JOIN ${TABLE_NAMES.assets} a ON latest.iccid = a.iccid
        WHERE (((latest.dataUsed - first.dataUsed) / ?) * ? / NULLIF(latest.dataSize, 0)) >= ?
        ORDER BY projectedPercent DESC`,
       [
@@ -339,6 +344,7 @@ exports.getMonthlyUsage = async (req, res) => {
        ) latest ON d.iccid = latest.iccid 
                    AND DATE_FORMAT(d.createdTime, '%Y-%m') = latest.month 
                    AND d.createdTime = latest.maxTime
+       INNER JOIN ${TABLE_NAMES.assets} a ON d.iccid = a.iccid
        WHERE d.createdTime >= ? AND d.createdTime <= ?
        GROUP BY DATE_FORMAT(d.createdTime, '%Y-%m')
        ORDER BY month ASC`,
