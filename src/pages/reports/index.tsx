@@ -9,12 +9,6 @@ import {
   MenuItem,
   Paper,
   Select,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   TextField,
   Typography,
   Chip,
@@ -24,14 +18,27 @@ import {
   FormControlLabel,
   Checkbox,
   Divider,
-} from '@mui/material';
-import { IconDownload, IconFileAnalytics, IconChartBar } from '@tabler/icons-react';
-import { FC, useState, useEffect } from 'react';
-import { PageLayout } from '../../components';
-import { reportService } from '../../services/simcard';
-import FilterBuilder, { Filter } from '../../components/reports/FilterBuilder';
-import MonthlyUsageReport from '../../components/dashboard/MonthlyUsageReport';
-import axios from 'axios';
+} from "@mui/material";
+import {
+  IconDownload,
+  IconFileAnalytics,
+  IconChartBar,
+} from "@tabler/icons-react";
+import { FC, useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { PageLayout } from "../../components";
+import { reportService } from "../../services/simcard";
+import FilterBuilder, { Filter } from "../../components/reports/FilterBuilder";
+import MonthlyUsageReport from "../../components/dashboard/MonthlyUsageReport";
+import {
+  AgGridWrapper,
+  type ColDef,
+  type GridApi,
+} from "../../components/AgGrid";
+import type {
+  ICellRendererParams,
+  ValueFormatterParams,
+} from "ag-grid-community";
+import axios from "axios";
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -56,35 +63,39 @@ function TabPanel(props: TabPanelProps) {
 
 const ReportsPage: FC = () => {
   const [tabValue, setTabValue] = useState(0);
-  
+
   // Basic Report Builder State
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
-  const [groupBy, setGroupBy] = useState('day');
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [groupBy, setGroupBy] = useState("day");
   const [reportData, setReportData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  
+
   // Dynamic Report Builder State
-  const [dynamicStartDate, setDynamicStartDate] = useState('');
-  const [dynamicEndDate, setDynamicEndDate] = useState('');
-  const [dynamicGroupBy, setDynamicGroupBy] = useState('none');
+  const [dynamicStartDate, setDynamicStartDate] = useState("");
+  const [dynamicEndDate, setDynamicEndDate] = useState("");
+  const [dynamicGroupBy, setDynamicGroupBy] = useState("none");
   const [uniqueIccid, setUniqueIccid] = useState(false);
-  const [sortBy, setSortBy] = useState('');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [sortBy, setSortBy] = useState("");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [filters, setFilters] = useState<Filter[]>([]);
   const [availableFields, setAvailableFields] = useState<any[]>([]);
   const [availableOperators, setAvailableOperators] = useState<any[]>([]);
   const [selectedMetrics, setSelectedMetrics] = useState<string[]>([
-    'iccid',
-    'msisdn',
-    'dataUsed',
-    'dataSize',
-    'usagePercent',
+    "iccid",
+    "msisdn",
+    "dataUsed",
+    "dataSize",
+    "usagePercent",
   ]);
-  
+
   // Alerts State
   const [alertThreshold, setAlertThreshold] = useState(0.8);
   const [alerts, setAlerts] = useState<any[]>([]);
+
+  // AG Grid API refs for CSV export
+  const basicGridApiRef = useRef<GridApi | null>(null);
+  const dynamicGridApiRef = useRef<GridApi | null>(null);
 
   // Fetch metadata for dynamic report builder
   useEffect(() => {
@@ -98,7 +109,7 @@ const ReportsPage: FC = () => {
           setAvailableOperators(metadata.operators);
         }
       } catch (error) {
-        console.error('Error fetching metadata:', error);
+        console.error("Error fetching metadata:", error);
       }
     };
     fetchMetadata();
@@ -114,7 +125,7 @@ const ReportsPage: FC = () => {
       });
       setReportData(data.report);
     } catch (error) {
-      console.error('Error generating report:', error);
+      console.error("Error generating report:", error);
     } finally {
       setLoading(false);
     }
@@ -123,9 +134,9 @@ const ReportsPage: FC = () => {
   const handleGenerateDynamicReport = async () => {
     try {
       setLoading(true);
-      
+
       // Transform filters to API format
-      const apiFilters = filters.map(f => ({
+      const apiFilters = filters.map((f) => ({
         field: f.field,
         operator: f.operator,
         value: f.value,
@@ -145,8 +156,8 @@ const ReportsPage: FC = () => {
 
       setReportData(result.report);
     } catch (error: any) {
-      console.error('Error generating dynamic report:', error);
-      alert(error.response?.data?.message || 'Error generating report');
+      console.error("Error generating dynamic report:", error);
+      alert(error.response?.data?.message || "Error generating report");
     } finally {
       setLoading(false);
     }
@@ -158,68 +169,186 @@ const ReportsPage: FC = () => {
       const data = await reportService.getAlerts(alertThreshold);
       setAlerts(data.alerts);
     } catch (error) {
-      console.error('Error fetching alerts:', error);
+      console.error("Error fetching alerts:", error);
     } finally {
       setLoading(false);
     }
   };
 
-  const exportToCSV = () => {
+  const exportToCSV = (gridApi?: GridApi | null) => {
+    const api = gridApi;
+    if (api) {
+      api.exportDataAsCsv({
+        fileName: `sim-report-${new Date().toISOString()}.csv`,
+      });
+      return;
+    }
+    // Fallback: manual CSV if no grid api
     if (reportData.length === 0) return;
-
     const headers = Object.keys(reportData[0]);
     const csvContent = [
-      headers.join(','),
-      ...reportData.map(row => headers.map(header => row[header]).join(','))
-    ].join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv' });
+      headers.join(","),
+      ...reportData.map((row) =>
+        headers.map((header) => row[header]).join(","),
+      ),
+    ].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv" });
     const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
     a.download = `sim-report-${new Date().toISOString()}.csv`;
     a.click();
   };
 
+  /** Build AG Grid ColDefs dynamically from report data keys */
+  const buildDynamicColDefs = useCallback((data: any[]): ColDef[] => {
+    if (!data || data.length === 0) return [];
+    return Object.keys(data[0]).map((key) => {
+      const sampleVal = data[0][key];
+      const isNumeric =
+        typeof sampleVal === "number" ||
+        (!isNaN(parseFloat(sampleVal)) && key !== "iccid" && key !== "msisdn");
+      const isDate =
+        key.toLowerCase().includes("date") ||
+        key.toLowerCase().includes("connection") ||
+        key.toLowerCase().includes("time");
+
+      const col: ColDef = {
+        headerName: key,
+        field: key,
+        minWidth: 120,
+      };
+
+      if (key === "iccid" || key === "msisdn") {
+        col.filter = "agTextColumnFilter";
+        if (key === "iccid") {
+          col.cellStyle = { fontFamily: "monospace" };
+          col.minWidth = 180;
+        }
+      } else if (isDate) {
+        col.filter = "agDateColumnFilter";
+        col.valueFormatter = (params: ValueFormatterParams) =>
+          params.value ? new Date(params.value).toLocaleString() : "";
+      } else if (isNumeric) {
+        col.filter = "agNumberColumnFilter";
+        col.type = "numericColumn";
+        if (!key.includes("Count")) {
+          col.valueGetter = (params) => {
+            const v = params.data?.[key];
+            return typeof v === "number" ? v : parseFloat(v) || 0;
+          };
+          col.valueFormatter = (params: ValueFormatterParams) =>
+            params.value != null ? Number(params.value).toFixed(2) : "";
+        }
+      } else {
+        col.filter = "agTextColumnFilter";
+      }
+      return col;
+    });
+  }, []);
+
+  /** Build fixed ColDefs for the Alerts table */
+  const alertColDefs = useMemo<ColDef[]>(
+    () => [
+      {
+        headerName: "ICCID",
+        field: "iccid",
+        filter: "agTextColumnFilter",
+        minWidth: 180,
+        cellStyle: { fontFamily: "monospace" },
+      },
+      {
+        headerName: "MSISDN",
+        field: "msisdn",
+        filter: "agTextColumnFilter",
+        minWidth: 130,
+      },
+      {
+        headerName: "Used (MB)",
+        field: "dataUsed",
+        filter: "agNumberColumnFilter",
+        type: "numericColumn",
+        minWidth: 110,
+        valueGetter: (p) => parseFloat(p.data?.dataUsed) || 0,
+        valueFormatter: (p: ValueFormatterParams) =>
+          p.value != null ? p.value.toFixed(2) : "",
+      },
+      {
+        headerName: "Capacity (MB)",
+        field: "dataSize",
+        filter: "agNumberColumnFilter",
+        type: "numericColumn",
+        minWidth: 120,
+        valueGetter: (p) => parseFloat(p.data?.dataSize) || 0,
+        valueFormatter: (p: ValueFormatterParams) =>
+          p.value != null ? p.value.toFixed(2) : "",
+      },
+      {
+        headerName: "Usage %",
+        field: "usagePercent",
+        filter: "agNumberColumnFilter",
+        type: "numericColumn",
+        minWidth: 110,
+        valueGetter: (p) => parseFloat(p.data?.usagePercent) || 0,
+        cellRenderer: (params: ICellRendererParams) => {
+          const val = parseFloat(params.value);
+          if (isNaN(val)) return null;
+          return (
+            <Chip label={`${val.toFixed(1)}%`} size="small" color="error" />
+          );
+        },
+      },
+      {
+        headerName: "Last Connection",
+        field: "lastConnection",
+        filter: "agDateColumnFilter",
+        minWidth: 170,
+        valueFormatter: (p: ValueFormatterParams) =>
+          p.value ? new Date(p.value).toLocaleString() : "N/A",
+      },
+    ],
+    [],
+  );
+
   const handleMetricToggle = (metric: string) => {
-    setSelectedMetrics(prev => 
-      prev.includes(metric) 
-        ? prev.filter(m => m !== metric)
-        : [...prev, metric]
+    setSelectedMetrics((prev) =>
+      prev.includes(metric)
+        ? prev.filter((m) => m !== metric)
+        : [...prev, metric],
     );
   };
 
   return (
     <PageLayout title="Reports & Analytics">
-      <Box sx={{ borderBottom: 1, borderColor: 'divider', overflowX: 'auto' }}>
-        <Tabs 
-          value={tabValue} 
+      <Box sx={{ borderBottom: 1, borderColor: "divider", overflowX: "auto" }}>
+        <Tabs
+          value={tabValue}
           onChange={(e, newValue) => setTabValue(newValue)}
           variant="scrollable"
           scrollButtons="auto"
           allowScrollButtonsMobile
         >
-          <Tab 
-            label="Basic" 
-            icon={<IconFileAnalytics size={18} />} 
-            iconPosition="start" 
-            sx={{ minHeight: { xs: 48, sm: 64 } }}
-          />
-          <Tab 
-            label="Dynamic" 
-            icon={<IconFileAnalytics size={18} />} 
+          <Tab
+            label="Basic"
+            icon={<IconFileAnalytics size={18} />}
             iconPosition="start"
             sx={{ minHeight: { xs: 48, sm: 64 } }}
           />
-          <Tab 
-            label="Monthly" 
-            icon={<IconChartBar size={18} />} 
+          <Tab
+            label="Dynamic"
+            icon={<IconFileAnalytics size={18} />}
             iconPosition="start"
             sx={{ minHeight: { xs: 48, sm: 64 } }}
           />
-          <Tab 
-            label="Alerts" 
-            icon={<IconFileAnalytics size={18} />} 
+          <Tab
+            label="Monthly"
+            icon={<IconChartBar size={18} />}
+            iconPosition="start"
+            sx={{ minHeight: { xs: 48, sm: 64 } }}
+          />
+          <Tab
+            label="Alerts"
+            icon={<IconFileAnalytics size={18} />}
             iconPosition="start"
             sx={{ minHeight: { xs: 48, sm: 64 } }}
           />
@@ -232,7 +361,11 @@ const ReportsPage: FC = () => {
           <Grid item xs={12} md={4}>
             <Card>
               <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
-                <Typography variant="h6" gutterBottom sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>
+                <Typography
+                  variant="h6"
+                  gutterBottom
+                  sx={{ fontSize: { xs: "1rem", sm: "1.25rem" } }}
+                >
                   Report Configuration
                 </Typography>
                 <Box sx={{ mt: 3 }}>
@@ -287,7 +420,7 @@ const ReportsPage: FC = () => {
                           fullWidth
                           variant="outlined"
                           startIcon={<IconDownload />}
-                          onClick={exportToCSV}
+                          onClick={() => exportToCSV(basicGridApiRef.current)}
                         >
                           Export to CSV
                         </Button>
@@ -303,43 +436,27 @@ const ReportsPage: FC = () => {
           <Grid item xs={12} md={8}>
             {reportData.length > 0 ? (
               <Paper sx={{ p: { xs: 1, sm: 2 } }}>
-                <Typography variant="h6" gutterBottom sx={{ fontSize: { xs: '1rem', sm: '1.25rem' }, px: 1 }}>
+                <Typography
+                  variant="h6"
+                  gutterBottom
+                  sx={{ fontSize: { xs: "1rem", sm: "1.25rem" }, px: 1 }}
+                >
                   Report Results ({reportData.length} records)
                 </Typography>
-                <TableContainer sx={{ maxHeight: 500, overflowX: 'auto' }}>
-                  <Table stickyHeader size="small" sx={{ minWidth: { xs: 600, sm: 'auto' } }}>
-                    <TableHead>
-                      <TableRow>
-                        {Object.keys(reportData[0]).map((key) => (
-                          <TableCell key={key} sx={{ whiteSpace: 'nowrap', fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
-                            {key}
-                          </TableCell>
-                        ))}
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {reportData.slice(0, 100).map((row, idx) => (
-                        <TableRow key={idx} hover>
-                          {Object.values(row).map((value: any, cellIdx) => (
-                            <TableCell key={cellIdx} sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>
-                              {value instanceof Date ? value.toLocaleString() : String(value)}
-                            </TableCell>
-                          ))}
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-                {reportData.length > 100 && (
-                  <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                    Showing first 100 records. Export to CSV for full data.
-                  </Typography>
-                )}
+                <AgGridWrapper
+                  height={500}
+                  rowData={reportData}
+                  columnDefs={buildDynamicColDefs(reportData)}
+                  onGridReady={(e) => {
+                    basicGridApiRef.current = e.api;
+                  }}
+                />
               </Paper>
             ) : (
-              <Paper sx={{ p: 4, textAlign: 'center' }}>
+              <Paper sx={{ p: 4, textAlign: "center" }}>
                 <Typography color="text.secondary">
-                  Configure your report and click "Generate Report" to view results
+                  Configure your report and click "Generate Report" to view
+                  results
                 </Typography>
               </Paper>
             )}
@@ -353,10 +470,19 @@ const ReportsPage: FC = () => {
           <Grid item xs={12}>
             <Card>
               <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
-                <Typography variant="h6" gutterBottom sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>
+                <Typography
+                  variant="h6"
+                  gutterBottom
+                  sx={{ fontSize: { xs: "1rem", sm: "1.25rem" } }}
+                >
                   Select Metrics
                 </Typography>
-                <FormGroup row sx={{ '& .MuiFormControlLabel-root': { mr: { xs: 1, sm: 2 } } }}>
+                <FormGroup
+                  row
+                  sx={{
+                    "& .MuiFormControlLabel-root": { mr: { xs: 1, sm: 2 } },
+                  }}
+                >
                   {availableFields.map((field) => (
                     <FormControlLabel
                       key={field.name}
@@ -367,7 +493,14 @@ const ReportsPage: FC = () => {
                           size="small"
                         />
                       }
-                      label={<Typography variant="body2" sx={{ fontSize: { xs: '0.8rem', sm: '0.875rem' } }}>{field.label}</Typography>}
+                      label={
+                        <Typography
+                          variant="body2"
+                          sx={{ fontSize: { xs: "0.8rem", sm: "0.875rem" } }}
+                        >
+                          {field.label}
+                        </Typography>
+                      }
                     />
                   ))}
                 </FormGroup>
@@ -387,7 +520,11 @@ const ReportsPage: FC = () => {
           <Grid item xs={12}>
             <Card>
               <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
-                <Typography variant="h6" gutterBottom sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>
+                <Typography
+                  variant="h6"
+                  gutterBottom
+                  sx={{ fontSize: { xs: "1rem", sm: "1.25rem" } }}
+                >
                   Additional Options
                 </Typography>
                 <Grid container spacing={2}>
@@ -439,7 +576,9 @@ const ReportsPage: FC = () => {
                         <MenuItem value="dataUsed">Data Used</MenuItem>
                         <MenuItem value="dataSize">Data Size</MenuItem>
                         <MenuItem value="usagePercent">Usage %</MenuItem>
-                        <MenuItem value="lastConnection">Last Connection</MenuItem>
+                        <MenuItem value="lastConnection">
+                          Last Connection
+                        </MenuItem>
                         <MenuItem value="createdTime">Created Time</MenuItem>
                       </Select>
                     </FormControl>
@@ -450,7 +589,9 @@ const ReportsPage: FC = () => {
                       <Select
                         value={sortOrder}
                         label="Sort Order"
-                        onChange={(e) => setSortOrder(e.target.value as 'asc' | 'desc')}
+                        onChange={(e) =>
+                          setSortOrder(e.target.value as "asc" | "desc")
+                        }
                       >
                         <MenuItem value="asc">Ascending</MenuItem>
                         <MenuItem value="desc">Descending</MenuItem>
@@ -469,7 +610,7 @@ const ReportsPage: FC = () => {
                     />
                   </Grid>
                   <Grid item xs={12}>
-                    <Box sx={{ display: 'flex', gap: 2 }}>
+                    <Box sx={{ display: "flex", gap: 2 }}>
                       <Button
                         variant="contained"
                         onClick={handleGenerateDynamicReport}
@@ -482,7 +623,7 @@ const ReportsPage: FC = () => {
                         <Button
                           variant="outlined"
                           startIcon={<IconDownload />}
-                          onClick={exportToCSV}
+                          onClick={() => exportToCSV(dynamicGridApiRef.current)}
                           fullWidth
                         >
                           Export CSV
@@ -499,42 +640,27 @@ const ReportsPage: FC = () => {
           <Grid item xs={12}>
             {reportData.length > 0 ? (
               <Paper sx={{ p: { xs: 1, sm: 2 } }}>
-                <Typography variant="h6" gutterBottom sx={{ fontSize: { xs: '1rem', sm: '1.25rem' }, px: 1 }}>
+                <Typography
+                  variant="h6"
+                  gutterBottom
+                  sx={{ fontSize: { xs: "1rem", sm: "1.25rem" }, px: 1 }}
+                >
                   Report Results ({reportData.length} records)
                 </Typography>
-                <TableContainer sx={{ maxHeight: 500, overflowX: 'auto' }}>
-                  <Table stickyHeader size="small" sx={{ minWidth: { xs: 600, sm: 'auto' } }}>
-                    <TableHead>
-                      <TableRow>
-                        {Object.keys(reportData[0]).map((key) => (
-                          <TableCell key={key} sx={{ whiteSpace: 'nowrap', fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
-                            <strong>{key}</strong>
-                          </TableCell>
-                        ))}
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {reportData.map((row, idx) => (
-                        <TableRow key={idx} hover>
-                          {Object.entries(row).map(([key, value]: [string, any], cellIdx) => (
-                            <TableCell key={cellIdx} sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>
-                              {value instanceof Date 
-                                ? value.toLocaleString() 
-                                : typeof value === 'number' && !key.includes('Count')
-                                ? value.toFixed(2)
-                                : String(value)}
-                            </TableCell>
-                          ))}
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
+                <AgGridWrapper
+                  height={500}
+                  rowData={reportData}
+                  columnDefs={buildDynamicColDefs(reportData)}
+                  onGridReady={(e) => {
+                    dynamicGridApiRef.current = e.api;
+                  }}
+                />
               </Paper>
             ) : (
-              <Paper sx={{ p: 4, textAlign: 'center' }}>
+              <Paper sx={{ p: 4, textAlign: "center" }}>
                 <Typography color="text.secondary">
-                  Configure metrics and filters, then click "Generate Dynamic Report"
+                  Configure metrics and filters, then click "Generate Dynamic
+                  Report"
                 </Typography>
               </Paper>
             )}
@@ -568,7 +694,9 @@ const ReportsPage: FC = () => {
                         label="Alert Threshold (%)"
                         type="number"
                         value={alertThreshold * 100}
-                        onChange={(e) => setAlertThreshold(parseFloat(e.target.value) / 100)}
+                        onChange={(e) =>
+                          setAlertThreshold(parseFloat(e.target.value) / 100)
+                        }
                         inputProps={{ min: 0, max: 100, step: 5 }}
                       />
                       <Typography variant="caption" color="text.secondary">
@@ -582,22 +710,24 @@ const ReportsPage: FC = () => {
                         color="warning"
                         onClick={handleFetchAlerts}
                         disabled={loading}
-                        sx={{ height: '56px' }}
+                        sx={{ height: "56px" }}
                       >
                         Check Alerts
                       </Button>
                     </Grid>
                     {alerts.length > 0 && (
                       <Grid item xs={12} md={4}>
-                        <Box sx={{ 
-                          display: 'flex', 
-                          alignItems: 'center', 
-                          height: '56px',
-                          px: 2,
-                          bgcolor: 'error.light',
-                          color: 'error.contrastText',
-                          borderRadius: 1
-                        }}>
+                        <Box
+                          sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            height: "56px",
+                            px: 2,
+                            bgcolor: "error.light",
+                            color: "error.contrastText",
+                            borderRadius: 1,
+                          }}
+                        >
                           <Typography variant="subtitle2" fontWeight="bold">
                             {alerts.length} SIM card(s) exceeded threshold
                           </Typography>
@@ -614,52 +744,26 @@ const ReportsPage: FC = () => {
           <Grid item xs={12}>
             {alerts.length > 0 ? (
               <Paper sx={{ p: { xs: 1, sm: 2 } }}>
-                <Typography variant="h6" gutterBottom color="error" sx={{ fontSize: { xs: '1rem', sm: '1.25rem' }, px: 1 }}>
+                <Typography
+                  variant="h6"
+                  gutterBottom
+                  color="error"
+                  sx={{ fontSize: { xs: "1rem", sm: "1.25rem" }, px: 1 }}
+                >
                   Active Alerts
                 </Typography>
-                <TableContainer sx={{ maxHeight: 500, overflowX: 'auto' }}>
-                  <Table stickyHeader sx={{ minWidth: { xs: 700, sm: 'auto' } }}>
-                    <TableHead>
-                      <TableRow>
-                        <TableCell sx={{ whiteSpace: 'nowrap', fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>ICCID</TableCell>
-                        <TableCell sx={{ whiteSpace: 'nowrap', fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>MSISDN</TableCell>
-                        <TableCell align="right" sx={{ whiteSpace: 'nowrap', fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>Used (MB)</TableCell>
-                        <TableCell align="right" sx={{ whiteSpace: 'nowrap', fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>Capacity (MB)</TableCell>
-                        <TableCell align="right" sx={{ whiteSpace: 'nowrap', fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>Usage %</TableCell>
-                        <TableCell sx={{ whiteSpace: 'nowrap', fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>Last Connection</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {alerts.map((alert) => (
-                        <TableRow key={alert.iccid} hover>
-                          <TableCell sx={{ fontFamily: 'monospace', fontSize: { xs: '0.7rem', sm: '0.85rem' } }}>
-                            {alert.iccid}
-                          </TableCell>
-                          <TableCell sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>{alert.msisdn}</TableCell>
-                          <TableCell align="right" sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>{alert.dataUsed}</TableCell>
-                          <TableCell align="right" sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>{alert.dataSize}</TableCell>
-                          <TableCell align="right">
-                            <Chip
-                              label={`${parseFloat(alert.usagePercent).toFixed(1)}%`}
-                              size="small"
-                              color="error"
-                            />
-                          </TableCell>
-                          <TableCell sx={{ fontSize: { xs: '0.65rem', sm: '0.875rem' } }}>
-                            {alert.lastConnection
-                              ? new Date(alert.lastConnection).toLocaleString()
-                              : 'N/A'}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
+                <AgGridWrapper
+                  height={500}
+                  rowData={alerts}
+                  columnDefs={alertColDefs}
+                  getRowId={(params) => params.data.iccid}
+                />
               </Paper>
             ) : (
-              <Paper sx={{ p: 4, textAlign: 'center' }}>
+              <Paper sx={{ p: 4, textAlign: "center" }}>
                 <Typography color="text.secondary">
-                  Configure threshold and click "Check Alerts" to view SIM cards exceeding usage limits
+                  Configure threshold and click "Check Alerts" to view SIM cards
+                  exceeding usage limits
                 </Typography>
               </Paper>
             )}

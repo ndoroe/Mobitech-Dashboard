@@ -1,5 +1,5 @@
-const logger = require('../utils/logger');
-const { promisePool } = require('../config/database');
+const logger = require("../utils/logger");
+const { promisePool } = require("../config/database");
 const {
   hashPassword,
   verifyPassword,
@@ -8,13 +8,13 @@ const {
   getVerificationExpiry,
   validatePassword,
   validateEmail,
-  validateUsername
-} = require('../utils/authHelpers');
+  validateUsername,
+} = require("../utils/authHelpers");
 const {
   sendVerificationEmail,
   sendAdminNotification,
-  sendPasswordResetEmail
-} = require('../utils/emailService');
+  sendPasswordResetEmail,
+} = require("../utils/emailService");
 
 /**
  * Register a new user
@@ -28,14 +28,14 @@ async function register(req, res) {
     if (!username || !email || !password || !confirmPassword) {
       return res.status(400).json({
         success: false,
-        message: 'All fields are required.'
+        message: "All fields are required.",
       });
     }
 
     if (password !== confirmPassword) {
       return res.status(400).json({
         success: false,
-        message: 'Passwords do not match.'
+        message: "Passwords do not match.",
       });
     }
 
@@ -43,7 +43,7 @@ async function register(req, res) {
     if (!validateEmail(email)) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid email format.'
+        message: "Invalid email format.",
       });
     }
 
@@ -52,7 +52,7 @@ async function register(req, res) {
     if (!usernameValidation.valid) {
       return res.status(400).json({
         success: false,
-        message: usernameValidation.message
+        message: usernameValidation.message,
       });
     }
 
@@ -61,33 +61,33 @@ async function register(req, res) {
     if (!passwordValidation.valid) {
       return res.status(400).json({
         success: false,
-        message: passwordValidation.message
+        message: passwordValidation.message,
       });
     }
 
     // Check if email already exists
     const [existingEmail] = await promisePool.query(
-      'SELECT id FROM users WHERE email = ?',
-      [email]
+      "SELECT id FROM users WHERE email = ?",
+      [email],
     );
 
     if (existingEmail.length > 0) {
       return res.status(400).json({
         success: false,
-        message: 'Email already registered.'
+        message: "Email already registered.",
       });
     }
 
     // Check if username already exists
     const [existingUsername] = await promisePool.query(
-      'SELECT id FROM users WHERE username = ?',
-      [username]
+      "SELECT id FROM users WHERE username = ?",
+      [username],
     );
 
     if (existingUsername.length > 0) {
       return res.status(400).json({
         success: false,
-        message: 'Username already taken.'
+        message: "Username already taken.",
       });
     }
 
@@ -99,17 +99,27 @@ async function register(req, res) {
     const verificationExpires = getVerificationExpiry();
 
     // Check if this is the first user (becomes admin automatically)
-    const [userCount] = await promisePool.query('SELECT COUNT(*) as count FROM users');
+    const [userCount] = await promisePool.query(
+      "SELECT COUNT(*) as count FROM users",
+    );
     const isFirstUser = userCount[0].count === 0;
 
-    const role = isFirstUser ? 'admin' : 'user';
-    const status = isFirstUser ? 'active' : 'pending_verification';
+    const role = isFirstUser ? "admin" : "user";
+    const status = isFirstUser ? "active" : "pending_verification";
 
     // Insert user
     const [result] = await promisePool.query(
       `INSERT INTO users (username, email, password_hash, role, status, verification_token, verification_expires)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [username, email, passwordHash, role, status, verificationToken, verificationExpires]
+      [
+        username,
+        email,
+        passwordHash,
+        role,
+        status,
+        verificationToken,
+        verificationExpires,
+      ],
     );
 
     if (isFirstUser) {
@@ -119,14 +129,14 @@ async function register(req, res) {
         username,
         email,
         role,
-        status
+        status,
       };
 
       const token = generateJWT(user);
 
       return res.status(201).json({
         success: true,
-        message: 'Admin account created successfully! You can log in now.',
+        message: "Admin account created successfully! You can log in now.",
         isFirstUser: true,
         token,
         user: {
@@ -134,8 +144,8 @@ async function register(req, res) {
           username: user.username,
           email: user.email,
           role: user.role,
-          status: user.status
-        }
+          status: user.status,
+        },
       });
     }
 
@@ -144,16 +154,16 @@ async function register(req, res) {
 
     res.status(201).json({
       success: true,
-      message: 'Registration successful! Please check your email to verify your account.',
-      email
+      message:
+        "Registration successful! Please check your email to verify your account.",
+      email,
     });
-
   } catch (error) {
-    logger.error('Registration error:', error);
+    logger.error("Registration error:", error);
     res.status(500).json({
       success: false,
-      message: 'An error occurred during registration.',
-      error: error.message
+      message: "An error occurred during registration.",
+      error: error.message,
     });
   }
 }
@@ -169,30 +179,30 @@ async function verifyEmail(req, res) {
     if (!token) {
       return res.status(400).json({
         success: false,
-        message: 'Verification token is required.'
+        message: "Verification token is required.",
       });
     }
 
     // Find user with this token
     const [users] = await promisePool.query(
-      'SELECT id, username, email, verification_token, verification_expires, status FROM users WHERE verification_token = ?',
-      [token]
+      "SELECT id, username, email, verification_token, verification_expires, status FROM users WHERE verification_token = ?",
+      [token],
     );
 
     if (users.length === 0) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid verification token.'
+        message: "Invalid verification token.",
       });
     }
 
     const user = users[0];
 
     // Check if already verified
-    if (user.status !== 'pending_verification') {
+    if (user.status !== "pending_verification") {
       return res.status(400).json({
         success: false,
-        message: 'Email already verified or account inactive.'
+        message: "Email already verified or account inactive.",
       });
     }
 
@@ -200,41 +210,50 @@ async function verifyEmail(req, res) {
     if (new Date() > new Date(user.verification_expires)) {
       return res.status(400).json({
         success: false,
-        message: 'Verification token has expired. Please request a new one.',
-        expired: true
+        message: "Verification token has expired. Please request a new one.",
+        expired: true,
       });
     }
 
     // Update user status to pending_approval
     await promisePool.query(
-      'UPDATE users SET status = ?, verification_token = NULL, verification_expires = NULL WHERE id = ?',
-      ['pending_approval', user.id]
+      "UPDATE users SET status = ?, verification_token = NULL, verification_expires = NULL WHERE id = ?",
+      ["pending_approval", user.id],
     );
 
     // Notify all admins
     const [admins] = await promisePool.query(
-      'SELECT id, email FROM users WHERE role = ? AND status = ?',
-      ['admin', 'active']
+      "SELECT id, email FROM users WHERE role = ? AND status = ?",
+      ["admin", "active"],
     );
 
     // Send email notifications to all admins
-    const emailPromises = admins.map(admin => 
-      sendAdminNotification(admin.email, user.email, user.username)
-        .catch(err => logger.error(`Failed to send email to admin ${admin.email}:`, err))
+    const emailPromises = admins.map((admin) =>
+      sendAdminNotification(admin.email, user.email, user.username).catch(
+        (err) =>
+          logger.error(`Failed to send email to admin ${admin.email}:`, err),
+      ),
     );
 
     // Create in-app notifications for all admins
-    const notificationPromises = admins.map(admin =>
-      promisePool.query(
-        `INSERT INTO admin_notifications (admin_id, user_id, type, message)
+    const notificationPromises = admins.map((admin) =>
+      promisePool
+        .query(
+          `INSERT INTO admin_notifications (admin_id, user_id, type, message)
          VALUES (?, ?, ?, ?)`,
-        [
-          admin.id,
-          user.id,
-          'new_registration',
-          `New user ${user.username} (${user.email}) has verified their email and is awaiting approval.`
-        ]
-      ).catch(err => logger.error(`Failed to create notification for admin ${admin.id}:`, err))
+          [
+            admin.id,
+            user.id,
+            "new_registration",
+            `New user ${user.username} (${user.email}) has verified their email and is awaiting approval.`,
+          ],
+        )
+        .catch((err) =>
+          logger.error(
+            `Failed to create notification for admin ${admin.id}:`,
+            err,
+          ),
+        ),
     );
 
     // Wait for all notifications to be sent (but don't fail if some fail)
@@ -242,15 +261,15 @@ async function verifyEmail(req, res) {
 
     res.json({
       success: true,
-      message: 'Email verified successfully! Your account is now pending admin approval.'
+      message:
+        "Email verified successfully! Your account is now pending admin approval.",
     });
-
   } catch (error) {
-    logger.error('Email verification error:', error);
+    logger.error("Email verification error:", error);
     res.status(500).json({
       success: false,
-      message: 'An error occurred during email verification.',
-      error: error.message
+      message: "An error occurred during email verification.",
+      error: error.message,
     });
   }
 }
@@ -266,55 +285,100 @@ async function login(req, res) {
     if (!username || !password) {
       return res.status(400).json({
         success: false,
-        message: 'Username and password are required.'
+        message: "Username and password are required.",
       });
     }
 
     // Find user by username or email
     const [users] = await promisePool.query(
-      'SELECT id, username, email, password_hash, role, status FROM users WHERE username = ? OR email = ?',
-      [username, username]
+      "SELECT id, username, email, password_hash, role, status, avatar, failed_login_attempts, locked_until FROM users WHERE username = ? OR email = ?",
+      [username, username],
     );
 
     if (users.length === 0) {
       return res.status(401).json({
         success: false,
-        message: 'Invalid username or password.'
+        message: "Invalid username or password.",
       });
     }
 
     const user = users[0];
 
+    // Check account lockout
+    if (user.locked_until && new Date(user.locked_until) > new Date()) {
+      const minutesLeft = Math.ceil(
+        (new Date(user.locked_until) - new Date()) / 60000,
+      );
+      return res.status(423).json({
+        success: false,
+        message: `Account is temporarily locked due to too many failed login attempts. Try again in ${minutesLeft} minute(s).`,
+      });
+    }
+
     // Verify password
     const isValidPassword = await verifyPassword(password, user.password_hash);
 
     if (!isValidPassword) {
+      // Increment failed attempts
+      const attempts = (user.failed_login_attempts || 0) + 1;
+      const MAX_ATTEMPTS = 5;
+      const LOCKOUT_MINUTES = 15;
+
+      if (attempts >= MAX_ATTEMPTS) {
+        // Lock the account
+        const lockUntil = new Date(Date.now() + LOCKOUT_MINUTES * 60 * 1000);
+        await promisePool.query(
+          "UPDATE users SET failed_login_attempts = ?, locked_until = ? WHERE id = ?",
+          [attempts, lockUntil, user.id],
+        );
+        return res.status(423).json({
+          success: false,
+          message: `Account locked for ${LOCKOUT_MINUTES} minutes due to ${MAX_ATTEMPTS} consecutive failed login attempts.`,
+        });
+      } else {
+        await promisePool.query(
+          "UPDATE users SET failed_login_attempts = ? WHERE id = ?",
+          [attempts, user.id],
+        );
+      }
+
       return res.status(401).json({
         success: false,
-        message: 'Invalid username or password.'
+        message: "Invalid username or password.",
       });
     }
 
+    // Reset failed attempts on successful login
+    if (user.failed_login_attempts > 0 || user.locked_until) {
+      await promisePool.query(
+        "UPDATE users SET failed_login_attempts = 0, locked_until = NULL WHERE id = ?",
+        [user.id],
+      );
+    }
+
     // Check user status
-    if (user.status !== 'active') {
-      let message = 'Account is not active.';
-      
+    if (user.status !== "active") {
+      let message = "Account is not active.";
+
       switch (user.status) {
-        case 'pending_verification':
-          message = 'Please verify your email address before logging in. Check your inbox for the verification link.';
+        case "pending_verification":
+          message =
+            "Please verify your email address before logging in. Check your inbox for the verification link.";
           break;
-        case 'pending_approval':
-          message = 'Your account is pending admin approval. You will receive an email once approved.';
+        case "pending_approval":
+          message =
+            "Your account is pending admin approval. You will receive an email once approved.";
           break;
-        case 'rejected':
-          message = 'Your account registration has been rejected. Please contact an administrator for more information.';
+        case "rejected":
+          message =
+            "Your account registration has been rejected. Please contact an administrator for more information.";
           break;
       }
 
       return res.status(403).json({
         success: false,
         message,
-        status: user.status
+        status: user.status,
       });
     }
 
@@ -324,28 +388,28 @@ async function login(req, res) {
       username: user.username,
       email: user.email,
       role: user.role,
-      status: user.status
+      status: user.status,
     });
 
     res.json({
       success: true,
-      message: 'Login successful.',
+      message: "Login successful.",
       token,
       user: {
         id: user.id,
         username: user.username,
         email: user.email,
         role: user.role,
-        status: user.status
-      }
+        status: user.status,
+        avatar: user.avatar || null,
+      },
     });
-
   } catch (error) {
-    logger.error('Login error:', error);
+    logger.error("Login error:", error);
     res.status(500).json({
       success: false,
-      message: 'An error occurred during login.',
-      error: error.message
+      message: "An error occurred during login.",
+      error: error.message,
     });
   }
 }
@@ -360,14 +424,14 @@ async function logout(req, res) {
     // This endpoint is here for symmetry and future token blacklisting if needed
     res.json({
       success: true,
-      message: 'Logout successful.'
+      message: "Logout successful.",
     });
   } catch (error) {
-    logger.error('Logout error:', error);
+    logger.error("Logout error:", error);
     res.status(500).json({
       success: false,
-      message: 'An error occurred during logout.',
-      error: error.message
+      message: "An error occurred during logout.",
+      error: error.message,
     });
   }
 }
@@ -383,31 +447,33 @@ async function resendVerification(req, res) {
     if (!email) {
       return res.status(400).json({
         success: false,
-        message: 'Email is required.'
+        message: "Email is required.",
       });
     }
 
     // Find user
     const [users] = await promisePool.query(
-      'SELECT id, username, email, status FROM users WHERE email = ?',
-      [email]
+      "SELECT id, username, email, status FROM users WHERE email = ?",
+      [email],
     );
 
     if (users.length === 0) {
       // Don't reveal if email exists or not
       return res.json({
         success: true,
-        message: 'If the email is registered and unverified, a new verification link has been sent.'
+        message:
+          "If the email is registered and unverified, a new verification link has been sent.",
       });
     }
 
     const user = users[0];
 
     // Only resend if status is pending_verification
-    if (user.status !== 'pending_verification') {
+    if (user.status !== "pending_verification") {
       return res.json({
         success: true,
-        message: 'If the email is registered and unverified, a new verification link has been sent.'
+        message:
+          "If the email is registered and unverified, a new verification link has been sent.",
       });
     }
 
@@ -417,8 +483,8 @@ async function resendVerification(req, res) {
 
     // Update user
     await promisePool.query(
-      'UPDATE users SET verification_token = ?, verification_expires = ? WHERE id = ?',
-      [verificationToken, verificationExpires, user.id]
+      "UPDATE users SET verification_token = ?, verification_expires = ? WHERE id = ?",
+      [verificationToken, verificationExpires, user.id],
     );
 
     // Send verification email
@@ -426,15 +492,14 @@ async function resendVerification(req, res) {
 
     res.json({
       success: true,
-      message: 'Verification email sent successfully.'
+      message: "Verification email sent successfully.",
     });
-
   } catch (error) {
-    logger.error('Resend verification error:', error);
+    logger.error("Resend verification error:", error);
     res.status(500).json({
       success: false,
-      message: 'An error occurred while resending verification email.',
-      error: error.message
+      message: "An error occurred while resending verification email.",
+      error: error.message,
     });
   }
 }
@@ -447,28 +512,27 @@ async function getCurrentUser(req, res) {
   try {
     // req.user is attached by authenticateToken middleware
     const [users] = await promisePool.query(
-      'SELECT id, username, email, role, status, created_at FROM users WHERE id = ?',
-      [req.user.id]
+      "SELECT id, username, email, role, status, avatar, created_at FROM users WHERE id = ?",
+      [req.user.id],
     );
 
     if (users.length === 0) {
       return res.status(404).json({
         success: false,
-        message: 'User not found.'
+        message: "User not found.",
       });
     }
 
     res.json({
       success: true,
-      user: users[0]
+      user: users[0],
     });
-
   } catch (error) {
-    logger.error('Get current user error:', error);
+    logger.error("Get current user error:", error);
     res.status(500).json({
       success: false,
-      message: 'An error occurred while fetching user data.',
-      error: error.message
+      message: "An error occurred while fetching user data.",
+      error: error.message,
     });
   }
 }
@@ -484,7 +548,7 @@ async function forgotPassword(req, res) {
     if (!email) {
       return res.status(400).json({
         success: false,
-        message: 'Email is required.'
+        message: "Email is required.",
       });
     }
 
@@ -492,31 +556,36 @@ async function forgotPassword(req, res) {
     if (!validateEmail(email)) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid email format.'
+        message: "Invalid email format.",
       });
     }
 
     // Find user
     const [users] = await promisePool.query(
-      'SELECT id, username, email, status FROM users WHERE email = ?',
-      [email]
+      "SELECT id, username, email, status FROM users WHERE email = ?",
+      [email],
     );
 
     // Don't reveal if email exists or not for security
     if (users.length === 0) {
       return res.json({
         success: true,
-        message: 'If an account with this email exists, a password reset link has been sent.'
+        message:
+          "If an account with this email exists, a password reset link has been sent.",
       });
     }
 
     const user = users[0];
 
     // Only allow password reset for active or rejected users
-    if (user.status === 'pending_verification' || user.status === 'pending_approval') {
+    if (
+      user.status === "pending_verification" ||
+      user.status === "pending_approval"
+    ) {
       return res.json({
         success: true,
-        message: 'If an account with this email exists, a password reset link has been sent.'
+        message:
+          "If an account with this email exists, a password reset link has been sent.",
       });
     }
 
@@ -526,8 +595,8 @@ async function forgotPassword(req, res) {
 
     // Update user with reset token
     await promisePool.query(
-      'UPDATE users SET password_reset_token = ?, password_reset_expires = ? WHERE id = ?',
-      [resetToken, resetExpires, user.id]
+      "UPDATE users SET password_reset_token = ?, password_reset_expires = ? WHERE id = ?",
+      [resetToken, resetExpires, user.id],
     );
 
     // Send reset email
@@ -535,14 +604,15 @@ async function forgotPassword(req, res) {
 
     res.json({
       success: true,
-      message: 'If an account with this email exists, a password reset link has been sent.'
+      message:
+        "If an account with this email exists, a password reset link has been sent.",
     });
   } catch (error) {
-    logger.error('Forgot password error:', error);
+    logger.error("Forgot password error:", error);
     res.status(500).json({
       success: false,
-      message: 'An error occurred while processing your request.',
-      error: error.message
+      message: "An error occurred while processing your request.",
+      error: error.message,
     });
   }
 }
@@ -559,21 +629,21 @@ async function resetPassword(req, res) {
     if (!token) {
       return res.status(400).json({
         success: false,
-        message: 'Reset token is required.'
+        message: "Reset token is required.",
       });
     }
 
     if (!password || !confirmPassword) {
       return res.status(400).json({
         success: false,
-        message: 'Password and confirmation are required.'
+        message: "Password and confirmation are required.",
       });
     }
 
     if (password !== confirmPassword) {
       return res.status(400).json({
         success: false,
-        message: 'Passwords do not match.'
+        message: "Passwords do not match.",
       });
     }
 
@@ -582,20 +652,20 @@ async function resetPassword(req, res) {
     if (!passwordValidation.valid) {
       return res.status(400).json({
         success: false,
-        message: passwordValidation.message
+        message: passwordValidation.message,
       });
     }
 
     // Find user with this reset token
     const [users] = await promisePool.query(
-      'SELECT id, username, email, password_reset_token, password_reset_expires FROM users WHERE password_reset_token = ?',
-      [token]
+      "SELECT id, username, email, password_reset_token, password_reset_expires FROM users WHERE password_reset_token = ?",
+      [token],
     );
 
     if (users.length === 0) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid or expired reset token.'
+        message: "Invalid or expired reset token.",
       });
     }
 
@@ -605,8 +675,9 @@ async function resetPassword(req, res) {
     if (new Date() > new Date(user.password_reset_expires)) {
       return res.status(400).json({
         success: false,
-        message: 'Reset token has expired. Please request a new password reset.',
-        expired: true
+        message:
+          "Reset token has expired. Please request a new password reset.",
+        expired: true,
       });
     }
 
@@ -615,20 +686,21 @@ async function resetPassword(req, res) {
 
     // Update password and clear reset token
     await promisePool.query(
-      'UPDATE users SET password_hash = ?, password_reset_token = NULL, password_reset_expires = NULL WHERE id = ?',
-      [newPasswordHash, user.id]
+      "UPDATE users SET password_hash = ?, password_reset_token = NULL, password_reset_expires = NULL WHERE id = ?",
+      [newPasswordHash, user.id],
     );
 
     res.json({
       success: true,
-      message: 'Password has been reset successfully. You can now log in with your new password.'
+      message:
+        "Password has been reset successfully. You can now log in with your new password.",
     });
   } catch (error) {
-    logger.error('Reset password error:', error);
+    logger.error("Reset password error:", error);
     res.status(500).json({
       success: false,
-      message: 'An error occurred while resetting password.',
-      error: error.message
+      message: "An error occurred while resetting password.",
+      error: error.message,
     });
   }
 }
@@ -641,5 +713,5 @@ module.exports = {
   resendVerification,
   getCurrentUser,
   forgotPassword,
-  resetPassword
+  resetPassword,
 };

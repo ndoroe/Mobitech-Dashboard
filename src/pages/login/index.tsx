@@ -19,6 +19,7 @@ import {
   Link as RouterLink,
 } from "react-router-dom";
 import { authProvider } from "../../services/auth";
+import { SimCardSvg } from "../../components";
 
 interface LoginActionData {
   error?: string;
@@ -72,10 +73,18 @@ export function LoginPage() {
   return (
     <Form method="post" replace>
       <input type="hidden" name="redirectTo" value={from} />
+      <Stack alignItems="center" sx={{ mb: 2 }}>
+        <SimCardSvg width={64} height={96} />
+      </Stack>
       <Typography variant="h5" gutterBottom>
         Sign in to your account
       </Typography>
-      <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 2 }}>
+      <Typography
+        variant="caption"
+        color="text.secondary"
+        display="block"
+        sx={{ mb: 2 }}
+      >
         Enter your credentials to access SIM Dashboard
       </Typography>
 
@@ -97,12 +106,22 @@ export function LoginPage() {
         id="password"
         autoComplete="current-password"
       />
-      <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mt: 1 }}>
+      <Stack
+        direction="row"
+        alignItems="center"
+        justifyContent="space-between"
+        sx={{ mt: 1 }}
+      >
         <FormControlLabel
           control={<Checkbox value="remember" color="primary" />}
           label="Remember me"
         />
-        <Link component={RouterLink} to="/auth/forgot-password" variant="body2" underline="hover">
+        <Link
+          component={RouterLink}
+          to="/auth/forgot-password"
+          variant="body2"
+          underline="hover"
+        >
           Forgot password?
         </Link>
       </Stack>
@@ -125,10 +144,13 @@ export function LoginPage() {
       </Button>
 
       <Stack direction="row" justifyContent="center" spacing={1}>
-        <Typography variant="body2">
-          Don't have an account?
-        </Typography>
-        <Link component={RouterLink} to="/auth/register" variant="body2" underline="hover">
+        <Typography variant="body2">Don't have an account?</Typography>
+        <Link
+          component={RouterLink}
+          to="/auth/register"
+          variant="body2"
+          underline="hover"
+        >
           Sign Up
         </Link>
       </Stack>
@@ -157,7 +179,7 @@ export async function loginAction({ request }: LoaderFunctionArgs) {
   // Sign in and redirect to the proper destination if successful.
   try {
     const result = await authProvider.signin(username, password);
-    
+
     if (!result.success) {
       return {
         error: result.error || "Invalid login attempt",

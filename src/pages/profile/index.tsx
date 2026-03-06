@@ -54,7 +54,7 @@ export default function ProfilePage() {
       const response = await api.get("/profile");
       setProfile(response.data.user);
       if (response.data.user.avatar) {
-        setAvatarPreview(`http://192.168.101.15:5000${response.data.user.avatar}`);
+        setAvatarPreview(response.data.user.avatar);
       }
     } catch (err: any) {
       setError(err.response?.data?.message || "Failed to fetch profile");
@@ -123,14 +123,14 @@ export default function ProfilePage() {
       });
 
       setSuccessMessage(response.data.message);
-      setAvatarPreview(`http://192.168.101.15:5000${response.data.avatar}`);
-      
+      setAvatarPreview(response.data.avatar);
+
       // Update auth provider with new avatar
       if (authProvider.user) {
         authProvider.user.avatar = response.data.avatar;
         localStorage.setItem("user", JSON.stringify(authProvider.user));
       }
-      
+
       fetchProfile();
     } catch (err: any) {
       setError(err.response?.data?.message || "Failed to upload avatar");
@@ -151,13 +151,13 @@ export default function ProfilePage() {
       const response = await api.delete("/profile/avatar");
       setSuccessMessage(response.data.message);
       setAvatarPreview(null);
-      
+
       // Update auth provider
       if (authProvider.user) {
         authProvider.user.avatar = undefined;
         localStorage.setItem("user", JSON.stringify(authProvider.user));
       }
-      
+
       fetchProfile();
     } catch (err: any) {
       setError(err.response?.data?.message || "Failed to delete avatar");
@@ -167,7 +167,12 @@ export default function ProfilePage() {
   if (loading) {
     return (
       <PageLayout title="Profile">
-        <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
+        <Box
+          display="flex"
+          justifyContent="center"
+          alignItems="center"
+          minHeight="400px"
+        >
           <CircularProgress />
         </Box>
       </PageLayout>
@@ -204,18 +209,31 @@ export default function ProfilePage() {
         {/* Profile Information */}
         <Grid item xs={12} md={4}>
           <Paper sx={{ p: { xs: 2, sm: 3 } }}>
-            <Typography variant="h6" gutterBottom sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>
+            <Typography
+              variant="h6"
+              gutterBottom
+              sx={{ fontSize: { xs: "1rem", sm: "1.25rem" } }}
+            >
               Profile Information
             </Typography>
             <Divider sx={{ mb: 2 }} />
 
-            <Box display="flex" flexDirection="column" alignItems="center" mb={3}>
+            <Box
+              display="flex"
+              flexDirection="column"
+              alignItems="center"
+              mb={3}
+            >
               <Avatar
                 src={avatarPreview || undefined}
                 alt={profile.username}
-                sx={{ width: { xs: 100, sm: 120 }, height: { xs: 100, sm: 120 }, mb: 2 }}
+                sx={{
+                  width: { xs: 100, sm: 120 },
+                  height: { xs: 100, sm: 120 },
+                  mb: 2,
+                }}
               />
-              
+
               <input
                 accept="image/*"
                 style={{ display: "none" }}
@@ -228,15 +246,21 @@ export default function ProfilePage() {
                 <Button
                   variant="outlined"
                   component="span"
-                  startIcon={uploadingAvatar ? <CircularProgress size={16} /> : <IconUpload size={16} />}
+                  startIcon={
+                    uploadingAvatar ? (
+                      <CircularProgress size={16} />
+                    ) : (
+                      <IconUpload size={16} />
+                    )
+                  }
                   disabled={uploadingAvatar}
-                  sx={{ mb: 1, width: { xs: '100%', sm: 'auto' } }}
+                  sx={{ mb: 1, width: { xs: "100%", sm: "auto" } }}
                   size="small"
                 >
                   {uploadingAvatar ? "Uploading..." : "Upload Avatar"}
                 </Button>
               </label>
-              
+
               {avatarPreview && (
                 <Button
                   variant="text"
@@ -244,7 +268,7 @@ export default function ProfilePage() {
                   startIcon={<IconTrash size={16} />}
                   onClick={handleAvatarDelete}
                   size="small"
-                  sx={{ width: { xs: '100%', sm: 'auto' } }}
+                  sx={{ width: { xs: "100%", sm: "auto" } }}
                 >
                   Remove Avatar
                 </Button>
@@ -259,21 +283,36 @@ export default function ProfilePage() {
                 {profile.username}
               </Typography>
 
-              <Typography variant="body2" color="text.secondary" gutterBottom sx={{ mt: 2 }}>
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                gutterBottom
+                sx={{ mt: 2 }}
+              >
                 Email
               </Typography>
               <Typography variant="body1" gutterBottom>
                 {profile.email}
               </Typography>
 
-              <Typography variant="body2" color="text.secondary" gutterBottom sx={{ mt: 2 }}>
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                gutterBottom
+                sx={{ mt: 2 }}
+              >
                 Role
               </Typography>
               <Typography variant="body1" gutterBottom>
                 {profile.role.toUpperCase()}
               </Typography>
 
-              <Typography variant="body2" color="text.secondary" gutterBottom sx={{ mt: 2 }}>
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                gutterBottom
+                sx={{ mt: 2 }}
+              >
                 Member Since
               </Typography>
               <Typography variant="body1">
@@ -286,7 +325,11 @@ export default function ProfilePage() {
         {/* Change Password */}
         <Grid item xs={12} md={8}>
           <Paper sx={{ p: { xs: 2, sm: 3 } }}>
-            <Typography variant="h6" gutterBottom sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>
+            <Typography
+              variant="h6"
+              gutterBottom
+              sx={{ fontSize: { xs: "1rem", sm: "1.25rem" } }}
+            >
               Change Password
             </Typography>
             <Divider sx={{ mb: 3 }} />
@@ -327,8 +370,10 @@ export default function ProfilePage() {
                 type="submit"
                 variant="contained"
                 disabled={changingPassword}
-                startIcon={changingPassword ? <CircularProgress size={16} /> : undefined}
-                sx={{ width: { xs: '100%', sm: 'auto' } }}
+                startIcon={
+                  changingPassword ? <CircularProgress size={16} /> : undefined
+                }
+                sx={{ width: { xs: "100%", sm: "auto" } }}
               >
                 {changingPassword ? "Changing Password..." : "Change Password"}
               </Button>

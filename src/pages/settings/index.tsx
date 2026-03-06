@@ -13,29 +13,41 @@ import {
   Snackbar,
   Divider,
   InputAdornment,
-} from '@mui/material';
-import { IconDeviceFloppy, IconRestore } from '@tabler/icons-react';
-import { FC, useEffect, useState } from 'react';
-import { PageLayout } from '../../components/layout/PageLayout';
+} from "@mui/material";
+import {
+  IconDeviceFloppy,
+  IconRestore,
+  IconSettings,
+} from "@tabler/icons-react";
+import { FC, useEffect, useState } from "react";
+import { PageLayout } from "../../components/layout/PageLayout";
 import {
   preferencesService,
   UserPreferences,
   DEFAULT_PREFERENCES,
-} from '../../services/preferences';
+} from "../../services/preferences";
+import { settingsService } from "../../services/settings";
+import { authProvider } from "../../services/auth";
 
 const Settings: FC = () => {
-  const [preferences, setPreferences] = useState<UserPreferences>(DEFAULT_PREFERENCES);
+  const [preferences, setPreferences] =
+    useState<UserPreferences>(DEFAULT_PREFERENCES);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [snackbar, setSnackbar] = useState<{
     open: boolean;
     message: string;
-    severity: 'success' | 'error';
+    severity: "success" | "error";
   }>({
     open: false,
-    message: '',
-    severity: 'success',
+    message: "",
+    severity: "success",
   });
+
+  // Admin system settings state
+  const isAdmin = authProvider.user?.role === "admin";
+  const [billedMbPerSim, setBilledMbPerSim] = useState<string>("200");
+  const [savingSystem, setSavingSystem] = useState(false);
 
   // Form validation errors
   const [errors, setErrors] = useState<{
@@ -46,6 +58,9 @@ const Settings: FC = () => {
 
   useEffect(() => {
     loadPreferences();
+    if (isAdmin) {
+      loadSystemSettings();
+    }
   }, []);
 
   const loadPreferences = async () => {
@@ -58,15 +73,61 @@ const Settings: FC = () => {
         alerts_enabled: Boolean(data.alerts_enabled),
       });
     } catch (error) {
-      console.error('Failed to load preferences:', error);
+      console.error("Failed to load preferences:", error);
       setSnackbar({
         open: true,
-        message: 'Failed to load preferences. Using defaults.',
-        severity: 'error',
+        message: "Failed to load preferences. Using defaults.",
+        severity: "error",
       });
       setPreferences(DEFAULT_PREFERENCES);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadSystemSettings = async () => {
+    try {
+      const settings = await settingsService.getSystemSettings();
+      if (settings.billed_mb_per_sim) {
+        setBilledMbPerSim(settings.billed_mb_per_sim.value);
+      }
+    } catch (error) {
+      console.error("Failed to load system settings:", error);
+    }
+  };
+
+  const handleSaveSystemSettings = async () => {
+    const numValue = parseFloat(billedMbPerSim);
+    if (isNaN(numValue) || numValue <= 0) {
+      setSnackbar({
+        open: true,
+        message: "Billed MB per SIM must be a positive number.",
+        severity: "error",
+      });
+      return;
+    }
+
+    try {
+      setSavingSystem(true);
+      await settingsService.updateSystemSetting(
+        "billed_mb_per_sim",
+        billedMbPerSim,
+      );
+      setSnackbar({
+        open: true,
+        message: "System settings saved successfully!",
+        severity: "success",
+      });
+    } catch (error: any) {
+      console.error("Failed to save system settings:", error);
+      setSnackbar({
+        open: true,
+        message:
+          error.response?.data?.message || "Failed to save system settings",
+        severity: "error",
+      });
+    } finally {
+      setSavingSystem(false);
     }
   };
 
@@ -77,26 +138,26 @@ const Settings: FC = () => {
       preferences.warning_threshold < 0 ||
       preferences.warning_threshold > 100
     ) {
-      newErrors.warning_threshold = 'Must be between 0 and 100';
+      newErrors.warning_threshold = "Must be between 0 and 100";
     }
 
     if (
       preferences.critical_threshold < 0 ||
       preferences.critical_threshold > 100
     ) {
-      newErrors.critical_threshold = 'Must be between 0 and 100';
+      newErrors.critical_threshold = "Must be between 0 and 100";
     }
 
     if (
       preferences.projected_threshold < 0 ||
       preferences.projected_threshold > 100
     ) {
-      newErrors.projected_threshold = 'Must be between 0 and 100';
+      newErrors.projected_threshold = "Must be between 0 and 100";
     }
 
     if (preferences.warning_threshold >= preferences.critical_threshold) {
-      newErrors.warning_threshold = 'Must be less than critical threshold';
-      newErrors.critical_threshold = 'Must be greater than warning threshold';
+      newErrors.warning_threshold = "Must be less than critical threshold";
+      newErrors.critical_threshold = "Must be greater than warning threshold";
     }
 
     setErrors(newErrors);
@@ -107,8 +168,8 @@ const Settings: FC = () => {
     if (!validateForm()) {
       setSnackbar({
         open: true,
-        message: 'Please fix validation errors',
-        severity: 'error',
+        message: "Please fix validation errors",
+        severity: "error",
       });
       return;
     }
@@ -128,15 +189,15 @@ const Settings: FC = () => {
       setPreferences(updated);
       setSnackbar({
         open: true,
-        message: 'Settings saved successfully!',
-        severity: 'success',
+        message: "Settings saved successfully!",
+        severity: "success",
       });
     } catch (error: any) {
-      console.error('Failed to save preferences:', error);
+      console.error("Failed to save preferences:", error);
       setSnackbar({
         open: true,
-        message: error.response?.data?.message || 'Failed to save settings',
-        severity: 'error',
+        message: error.response?.data?.message || "Failed to save settings",
+        severity: "error",
       });
     } finally {
       setSaving(false);
@@ -144,7 +205,7 @@ const Settings: FC = () => {
   };
 
   const handleReset = async () => {
-    if (!window.confirm('Reset all settings to defaults?')) {
+    if (!window.confirm("Reset all settings to defaults?")) {
       return;
     }
 
@@ -155,15 +216,15 @@ const Settings: FC = () => {
       setErrors({});
       setSnackbar({
         open: true,
-        message: 'Settings reset to defaults',
-        severity: 'success',
+        message: "Settings reset to defaults",
+        severity: "success",
       });
     } catch (error) {
-      console.error('Failed to reset preferences:', error);
+      console.error("Failed to reset preferences:", error);
       setSnackbar({
         open: true,
-        message: 'Failed to reset settings',
-        severity: 'error',
+        message: "Failed to reset settings",
+        severity: "error",
       });
     } finally {
       setSaving(false);
@@ -182,12 +243,80 @@ const Settings: FC = () => {
     <PageLayout title="Settings">
       <Grid container spacing={{ xs: 2, md: 3 }}>
         <Grid item xs={12} md={8} lg={6}>
+          {/* Admin-only System Settings */}
+          {isAdmin && (
+            <Card sx={{ mb: 3 }}>
+              <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
+                <Stack direction="row" alignItems="center" spacing={1} mb={1}>
+                  <IconSettings size={22} />
+                  <Typography
+                    variant="h6"
+                    sx={{ fontSize: { xs: "1rem", sm: "1.25rem" } }}
+                  >
+                    System Settings
+                  </Typography>
+                </Stack>
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  paragraph
+                  sx={{ fontSize: { xs: "0.8rem", sm: "0.875rem" } }}
+                >
+                  Admin-only settings that affect pool capacity calculations
+                  across the entire system.
+                </Typography>
+
+                <Divider sx={{ my: 2 }} />
+
+                <Stack spacing={3}>
+                  <TextField
+                    fullWidth
+                    label="Billed MB per SIM"
+                    type="number"
+                    value={billedMbPerSim}
+                    onChange={(e) => setBilledMbPerSim(e.target.value)}
+                    helperText={`Total pool capacity = ${billedMbPerSim || 0} MB × number of SIMs. Currently ${((parseFloat(billedMbPerSim) || 0) / 1024).toFixed(2)} GB per SIM.`}
+                    InputProps={{
+                      endAdornment: (
+                        <InputAdornment position="end">MB</InputAdornment>
+                      ),
+                    }}
+                    inputProps={{
+                      min: 1,
+                      step: 50,
+                    }}
+                  />
+
+                  <Stack direction="row" justifyContent="flex-end">
+                    <Button
+                      variant="contained"
+                      startIcon={<IconDeviceFloppy />}
+                      onClick={handleSaveSystemSettings}
+                      disabled={savingSystem}
+                    >
+                      {savingSystem ? "Saving..." : "Save System Settings"}
+                    </Button>
+                  </Stack>
+                </Stack>
+              </CardContent>
+            </Card>
+          )}
+
           <Card>
             <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
-              <Typography variant="h6" gutterBottom sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>
+              <Typography
+                variant="h6"
+                gutterBottom
+                sx={{ fontSize: { xs: "1rem", sm: "1.25rem" } }}
+              >
                 Alert Notification Settings
               </Typography>
-              <Typography variant="body2" color="text.secondary" paragraph sx={{ fontSize: { xs: '0.8rem', sm: '0.875rem' } }}>
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                paragraph
+                sx={{ fontSize: { xs: "0.8rem", sm: "0.875rem" } }}
+              >
                 Configure when and how you want to receive SIM usage alerts
               </Typography>
 
@@ -242,10 +371,12 @@ const Settings: FC = () => {
                   error={!!errors.warning_threshold}
                   helperText={
                     errors.warning_threshold ||
-                    'Alert when usage is between this and critical threshold'
+                    "Alert when usage is between this and critical threshold"
                   }
                   InputProps={{
-                    endAdornment: <InputAdornment position="end">%</InputAdornment>,
+                    endAdornment: (
+                      <InputAdornment position="end">%</InputAdornment>
+                    ),
                   }}
                   inputProps={{
                     min: 0,
@@ -270,10 +401,12 @@ const Settings: FC = () => {
                   error={!!errors.critical_threshold}
                   helperText={
                     errors.critical_threshold ||
-                    'Alert when usage equals or exceeds this percentage'
+                    "Alert when usage equals or exceeds this percentage"
                   }
                   InputProps={{
-                    endAdornment: <InputAdornment position="end">%</InputAdornment>,
+                    endAdornment: (
+                      <InputAdornment position="end">%</InputAdornment>
+                    ),
                   }}
                   inputProps={{
                     min: 0,
@@ -298,10 +431,12 @@ const Settings: FC = () => {
                   error={!!errors.projected_threshold}
                   helperText={
                     errors.projected_threshold ||
-                    'Alert when projected end-of-month usage equals or exceeds this percentage'
+                    "Alert when projected end-of-month usage equals or exceeds this percentage"
                   }
                   InputProps={{
-                    endAdornment: <InputAdornment position="end">%</InputAdornment>,
+                    endAdornment: (
+                      <InputAdornment position="end">%</InputAdornment>
+                    ),
                   }}
                   inputProps={{
                     min: 0,
@@ -320,7 +455,7 @@ const Settings: FC = () => {
 
                 <Box>
                   <Typography variant="body2" gutterBottom>
-                    Warning Color ({preferences.warning_threshold}% -{' '}
+                    Warning Color ({preferences.warning_threshold}% -{" "}
                     {preferences.critical_threshold - 0.01}%)
                   </Typography>
                   <Stack direction="row" spacing={2} alignItems="center">
@@ -338,9 +473,9 @@ const Settings: FC = () => {
                         width: 60,
                         height: 40,
                         cursor: preferences.alerts_enabled
-                          ? 'pointer'
-                          : 'not-allowed',
-                        border: '1px solid #ccc',
+                          ? "pointer"
+                          : "not-allowed",
+                        border: "1px solid #ccc",
                         borderRadius: 4,
                       }}
                     />
@@ -382,9 +517,9 @@ const Settings: FC = () => {
                         width: 60,
                         height: 40,
                         cursor: preferences.alerts_enabled
-                          ? 'pointer'
-                          : 'not-allowed',
-                        border: '1px solid #ccc',
+                          ? "pointer"
+                          : "not-allowed",
+                        border: "1px solid #ccc",
                         borderRadius: 4,
                       }}
                     />
@@ -462,9 +597,9 @@ const Settings: FC = () => {
                 <Divider />
 
                 {/* Action Buttons */}
-                <Stack 
-                  direction={{ xs: 'column', sm: 'row' }} 
-                  spacing={2} 
+                <Stack
+                  direction={{ xs: "column", sm: "row" }}
+                  spacing={2}
                   justifyContent="flex-end"
                 >
                   <Button
@@ -472,7 +607,7 @@ const Settings: FC = () => {
                     startIcon={<IconRestore />}
                     onClick={handleReset}
                     disabled={saving}
-                    sx={{ width: { xs: '100%', sm: 'auto' } }}
+                    sx={{ width: { xs: "100%", sm: "auto" } }}
                   >
                     Reset to Defaults
                   </Button>
@@ -481,9 +616,9 @@ const Settings: FC = () => {
                     startIcon={<IconDeviceFloppy />}
                     onClick={handleSave}
                     disabled={saving}
-                    sx={{ width: { xs: '100%', sm: 'auto' } }}
+                    sx={{ width: { xs: "100%", sm: "auto" } }}
                   >
-                    {saving ? 'Saving...' : 'Save Settings'}
+                    {saving ? "Saving..." : "Save Settings"}
                   </Button>
                 </Stack>
               </Stack>
@@ -518,7 +653,7 @@ const Settings: FC = () => {
         open={snackbar.open}
         autoHideDuration={4000}
         onClose={() => setSnackbar({ ...snackbar, open: false })}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
       >
         <Alert
           onClose={() => setSnackbar({ ...snackbar, open: false })}

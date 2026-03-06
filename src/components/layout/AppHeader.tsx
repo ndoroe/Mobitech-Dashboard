@@ -11,10 +11,7 @@ import {
   useMediaQuery,
   useTheme,
 } from "@mui/material";
-import {
-  IconAlertTriangle,
-  IconMenu2,
-} from "@tabler/icons-react";
+import { IconAlertTriangle, IconApi, IconMenu2 } from "@tabler/icons-react";
 import { FC, ReactNode, useEffect, useState } from "react";
 import { To, useNavigate } from "react-router-dom";
 import { FullscreenButton } from "../FullscreenButton";
@@ -22,6 +19,7 @@ import { drawerWidth } from "./AppLayout";
 import { Notifications } from "./Notifications";
 import { UserMenu } from "./UserMenu";
 import { notificationService } from "../../services/notifications";
+import { authProvider } from "../../services/auth";
 
 type TTopNav = {
   label: string;
@@ -36,9 +34,7 @@ type TNotification = {
   onClick?: () => void;
 };
 
-const pages: TTopNav[] = [
-  { label: "Home", link: "/" },
-];
+const pages: TTopNav[] = [{ label: "Home", link: "/" }];
 
 interface DesktopAppBarProps extends AppBarProps {
   open?: boolean;
@@ -94,32 +90,34 @@ export const AppHeader: FC<Props> = ({
   const fetchNotifications = async () => {
     try {
       const alertSummary = await notificationService.getAlertSummary();
-      
+
       const notificationList: TNotification[] = [];
-      
+
       // Add SIM usage alerts if any
       if (alertSummary.count > 0) {
         notificationList.push({
           icon: <IconAlertTriangle size={20} />,
           count: alertSummary.count,
           text: "SIM usage alerts",
-          lastUpdated: notificationService.formatLastUpdated(alertSummary.lastUpdated),
+          lastUpdated: notificationService.formatLastUpdated(
+            alertSummary.lastUpdated,
+          ),
           onClick: () => {
             // Try to open the alert modal if on home page
-            if (typeof (window as any).openAlertModal === 'function') {
+            if (typeof (window as any).openAlertModal === "function") {
               (window as any).openAlertModal();
             } else {
               // Otherwise navigate to reports
-              navigate('/reports');
+              navigate("/reports");
             }
           },
         });
       }
-      
+
       setNotifications(notificationList);
       setLastUpdate(new Date());
     } catch (error) {
-      console.error('Failed to fetch notifications:', error);
+      console.error("Failed to fetch notifications:", error);
     }
   };
 
@@ -130,9 +128,12 @@ export const AppHeader: FC<Props> = ({
 
   // Poll for notifications every 5 minutes
   useEffect(() => {
-    const interval = setInterval(() => {
-      fetchNotifications();
-    }, 5 * 60 * 1000); // 5 minutes
+    const interval = setInterval(
+      () => {
+        fetchNotifications();
+      },
+      5 * 60 * 1000,
+    ); // 5 minutes
 
     return () => clearInterval(interval);
   }, []);
@@ -198,6 +199,17 @@ export const AppHeader: FC<Props> = ({
               {page.label}
             </Button>
           ))}
+          {authProvider.user?.role === "admin" && (
+            <Button
+              component="a"
+              href="/api/docs"
+              target="_blank"
+              rel="noopener noreferrer"
+              sx={{ color: "inherit", fontWeight: 400 }}
+            >
+              API
+            </Button>
+          )}
         </Stack>
         <Stack direction="row" spacing={2} flexGrow={0}>
           <Notifications />

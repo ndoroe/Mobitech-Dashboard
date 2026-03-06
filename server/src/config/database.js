@@ -29,7 +29,8 @@ const pool = mysql.createPool({
   queueLimit: 0,
   enableKeepAlive: true,
   keepAliveInitialDelay: 0,
-  charset: 'utf8mb4'
+  charset: 'utf8mb4',
+  timezone: '+02:00'
 });
 
 // Promisify for async/await

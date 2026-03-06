@@ -1,9 +1,4 @@
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
   Typography,
   Chip,
   CircularProgress,
@@ -14,120 +9,203 @@ import {
   DialogContent,
   DialogActions,
   Button,
+  ButtonGroup,
   useMediaQuery,
   useTheme,
-} from '@mui/material';
-import { IconEye, IconX } from '@tabler/icons-react';
-import { FC, useState } from 'react';
-import { TopConsumer } from '../../services/simcard';
-import { SimUsageGraph } from './SimUsageGraph';
+} from "@mui/material";
+import { IconEye, IconX } from "@tabler/icons-react";
+import { FC, useState, useMemo, useCallback } from "react";
+import { TopConsumer } from "../../services/simcard";
+import { SimUsageGraph } from "./SimUsageGraph";
+import { AgGridWrapper, type ColDef } from "../AgGrid";
+import type {
+  ICellRendererParams,
+  ValueFormatterParams,
+} from "ag-grid-community";
 
 interface Props {
   consumers: TopConsumer[];
   loading?: boolean;
+  period?: "week" | "month";
+  onPeriodChange?: (period: "week" | "month") => void;
 }
 
-export const TopConsumersTable: FC<Props> = ({ consumers, loading }) => {
+export const TopConsumersTable: FC<Props> = ({
+  consumers,
+  loading,
+  period = "month",
+  onPeriodChange,
+}) => {
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const [selectedSim, setSelectedSim] = useState<string | null>(null);
 
-  const getUsageColor = (percent: number) => {
-    if (percent >= 90) return 'error';
-    if (percent >= 80) return 'warning';
-    if (percent >= 60) return 'info';
-    return 'success';
+  const getUsageColor = (
+    percent: number,
+  ): "error" | "warning" | "info" | "success" => {
+    if (percent >= 90) return "error";
+    if (percent >= 80) return "warning";
+    if (percent >= 60) return "info";
+    return "success";
   };
+
+  const UsageChipRenderer = useCallback((params: ICellRendererParams) => {
+    const val = parseFloat(params.value);
+    if (isNaN(val)) return null;
+    return (
+      <Chip
+        label={`${val.toFixed(1)}%`}
+        size="small"
+        color={getUsageColor(val)}
+      />
+    );
+  }, []);
+
+  const ActionsRenderer = useCallback((params: ICellRendererParams) => {
+    return (
+      <IconButton
+        size="small"
+        color="primary"
+        onClick={() => setSelectedSim(params.data?.iccid)}
+        aria-label="view usage history"
+      >
+        <IconEye size={18} />
+      </IconButton>
+    );
+  }, []);
+
+  const columnDefs = useMemo<ColDef[]>(
+    () => [
+      {
+        headerName: "ICCID",
+        field: "iccid",
+        filter: "agTextColumnFilter",
+        minWidth: 180,
+        cellStyle: { fontFamily: "monospace" },
+      },
+      {
+        headerName: "MSISDN",
+        field: "msisdn",
+        filter: "agTextColumnFilter",
+        minWidth: 130,
+      },
+      {
+        headerName: "Used (MB)",
+        field: "totalUsed",
+        filter: "agNumberColumnFilter",
+        type: "numericColumn",
+        minWidth: 110,
+        valueGetter: (params) => parseFloat(params.data?.totalUsed) || 0,
+        valueFormatter: (params: ValueFormatterParams) =>
+          params.value != null ? params.value.toFixed(2) : "",
+      },
+      {
+        headerName: "Capacity (MB)",
+        field: "dataSize",
+        filter: "agNumberColumnFilter",
+        type: "numericColumn",
+        minWidth: 120,
+        valueGetter: (params) => parseFloat(params.data?.dataSize) || 0,
+        valueFormatter: (params: ValueFormatterParams) =>
+          params.value != null ? params.value.toFixed(2) : "",
+      },
+      {
+        headerName: "Usage %",
+        field: "usagePercent",
+        filter: "agNumberColumnFilter",
+        type: "numericColumn",
+        minWidth: 110,
+        valueGetter: (params) => parseFloat(params.data?.usagePercent) || 0,
+        cellRenderer: UsageChipRenderer,
+      },
+      {
+        headerName: "Last Connection",
+        field: "lastConnection",
+        filter: "agDateColumnFilter",
+        minWidth: 170,
+        valueFormatter: (params: ValueFormatterParams) =>
+          params.value ? new Date(params.value).toLocaleString() : "N/A",
+      },
+      {
+        headerName: "Actions",
+        field: "actions",
+        sortable: false,
+        filter: false,
+        floatingFilter: false,
+        resizable: false,
+        minWidth: 80,
+        maxWidth: 90,
+        cellRenderer: ActionsRenderer,
+      },
+    ],
+    [UsageChipRenderer, ActionsRenderer],
+  );
+
+  // Handle undefined or null consumers
+  const safeConsumers = consumers || [];
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+      <Box sx={{ display: "flex", justifyContent: "center", p: 4 }}>
         <CircularProgress />
       </Box>
     );
   }
 
-  // Handle undefined or null consumers
-  const safeConsumers = consumers || [];
-
   return (
     <>
-      <Typography component="h2" variant="h6" color="primary" gutterBottom>
-        Top Data Consumers
-      </Typography>
-      <Box sx={{ overflowX: 'auto', width: '100%' }}>
-        <Table size="small" sx={{ minWidth: { xs: 650, sm: 'auto' } }}>
-          <TableHead>
-            <TableRow>
-              <TableCell sx={{ whiteSpace: 'nowrap' }}>ICCID</TableCell>
-              <TableCell sx={{ whiteSpace: 'nowrap' }}>MSISDN</TableCell>
-              <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>Used (MB)</TableCell>
-              <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>Capacity (MB)</TableCell>
-              <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>Usage %</TableCell>
-              <TableCell sx={{ whiteSpace: 'nowrap', display: { xs: 'none', md: 'table-cell' } }}>Last Connection</TableCell>
-              <TableCell align="center" sx={{ whiteSpace: 'nowrap' }}>Actions</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {safeConsumers.map((consumer) => {
-              const usagePercent = parseFloat(consumer.usagePercent);
-              return (
-                <TableRow key={consumer.iccid} hover>
-                  <TableCell>
-                    <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>
-                      {consumer.iccid}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body2" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
-                      {consumer.msisdn}
-                    </Typography>
-                  </TableCell>
-                  <TableCell align="right">
-                    <Typography variant="body2" fontWeight="bold" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
-                      {consumer.totalUsed}
-                    </Typography>
-                  </TableCell>
-                  <TableCell align="right">
-                    <Typography variant="body2" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
-                      {consumer.dataSize}
-                    </Typography>
-                  </TableCell>
-                  <TableCell align="right">
-                    <Chip
-                      label={`${usagePercent.toFixed(1)}%`}
-                      size="small"
-                      color={getUsageColor(usagePercent)}
-                      sx={{ fontSize: { xs: '0.65rem', sm: '0.8125rem' } }}
-                    />
-                  </TableCell>
-                  <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>
-                    <Typography variant="caption" color="text.secondary">
-                      {consumer.lastConnection
-                        ? new Date(consumer.lastConnection).toLocaleString()
-                        : 'N/A'}
-                    </Typography>
-                  </TableCell>
-                  <TableCell align="center">
-                    <IconButton
-                      size="small"
-                      color="primary"
-                      onClick={() => setSelectedSim(consumer.iccid)}
-                      aria-label="view usage history"
-                    >
-                      <IconEye size={18} />
-                    </IconButton>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          mb: 1,
+        }}
+      >
+        <Typography component="h2" variant="h6" color="primary" sx={{ m: 0 }}>
+          Top Data Consumers
+        </Typography>
+        {onPeriodChange && (
+          <ButtonGroup size="small" disableElevation>
+            <Button
+              variant={period === "week" ? "contained" : "outlined"}
+              onClick={() => onPeriodChange("week")}
+              sx={{
+                textTransform: "none",
+                fontWeight: period === "week" ? 700 : 400,
+                px: 2,
+                borderRadius: "20px 0 0 20px",
+              }}
+            >
+              This Week
+            </Button>
+            <Button
+              variant={period === "month" ? "contained" : "outlined"}
+              onClick={() => onPeriodChange("month")}
+              sx={{
+                textTransform: "none",
+                fontWeight: period === "month" ? 700 : 400,
+                px: 2,
+                borderRadius: "0 20px 20px 0",
+              }}
+            >
+              MTD
+            </Button>
+          </ButtonGroup>
+        )}
       </Box>
-      {safeConsumers.length === 0 && (
-        <Box sx={{ p: 3, textAlign: 'center' }}>
+      {safeConsumers.length === 0 ? (
+        <Box sx={{ p: 3, textAlign: "center" }}>
           <Typography color="text.secondary">No data available</Typography>
         </Box>
+      ) : (
+        <AgGridWrapper
+          autoHeight
+          rowData={safeConsumers}
+          columnDefs={columnDefs}
+          pagination={false}
+          getRowId={(params) => params.data.iccid}
+        />
       )}
 
       {/* SIM Usage Dialog */}
@@ -139,12 +217,23 @@ export const TopConsumersTable: FC<Props> = ({ consumers, loading }) => {
         fullScreen={isMobile}
       >
         <DialogTitle sx={{ pb: 1 }}>
-          <Box display="flex" alignItems="center" justifyContent="space-between">
+          <Box
+            display="flex"
+            alignItems="center"
+            justifyContent="space-between"
+          >
             <Box flex={1}>
-              <Typography variant="h6" sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>
+              <Typography
+                variant="h6"
+                sx={{ fontSize: { xs: "1rem", sm: "1.25rem" } }}
+              >
                 SIM Usage History
               </Typography>
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ display: "block", mt: 0.5 }}
+              >
                 {selectedSim}
               </Typography>
             </Box>

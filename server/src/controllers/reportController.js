@@ -1,6 +1,16 @@
-const logger = require('../utils/logger');
-const { promisePool, TABLE_NAMES } = require('../config/database');
-const { buildReportQuery, FIELD_METADATA, OPERATORS } = require('../utils/queryBuilder');
+const logger = require("../utils/logger");
+const { promisePool, TABLE_NAMES } = require("../config/database");
+const {
+  buildReportQuery,
+  FIELD_METADATA,
+  OPERATORS,
+} = require("../utils/queryBuilder");
+const {
+  catDate,
+  catDateStr,
+  catStartOfDay,
+  catEndOfDay,
+} = require("../utils/catDate");
 
 /**
  * Generate custom report based on user filters
@@ -11,31 +21,31 @@ exports.generateCustomReport = async (req, res) => {
       startDate,
       endDate,
       iccid,
-      groupBy = 'day', // day, month, none
-      columns = ['iccid', 'msisdn', 'dataUsed', 'createdTime']
+      groupBy = "day", // day, month, none
+      columns = ["iccid", "msisdn", "dataUsed", "createdTime"],
     } = req.body;
 
     // Build WHERE clause
-    let whereConditions = ['1=1'];
+    let whereConditions = ["1=1"];
     let params = [];
 
     if (startDate) {
-      whereConditions.push('d.createdTime >= ?');
+      whereConditions.push("d.createdTime >= ?");
       params.push(startDate);
     }
     if (endDate) {
-      whereConditions.push('d.createdTime <= ?');
+      whereConditions.push("d.createdTime <= ?");
       params.push(endDate);
     }
     if (iccid) {
-      whereConditions.push('d.iccid = ?');
+      whereConditions.push("d.iccid = ?");
       params.push(iccid);
     }
 
-    const whereClause = whereConditions.join(' AND ');
+    const whereClause = whereConditions.join(" AND ");
 
-    let query = '';
-    if (groupBy === 'none') {
+    let query = "";
+    if (groupBy === "none") {
       // Raw data
       query = `
         SELECT 
@@ -51,7 +61,7 @@ exports.generateCustomReport = async (req, res) => {
         ORDER BY d.createdTime DESC
         LIMIT 1000
       `;
-    } else if (groupBy === 'day') {
+    } else if (groupBy === "day") {
       query = `
         SELECT 
           d.iccid,
@@ -67,7 +77,7 @@ exports.generateCustomReport = async (req, res) => {
         ORDER BY date DESC
         LIMIT 1000
       `;
-    } else if (groupBy === 'month') {
+    } else if (groupBy === "month") {
       query = `
         SELECT 
           d.iccid,
@@ -92,15 +102,15 @@ exports.generateCustomReport = async (req, res) => {
       data: {
         report: results,
         filters: { startDate, endDate, iccid, groupBy },
-        count: results.length
-      }
+        count: results.length,
+      },
     });
   } catch (error) {
-    logger.error('Error generating report:', error);
+    logger.error("Error generating report:", error);
     res.status(500).json({
       success: false,
-      message: 'Error generating report',
-      error: error.message
+      message: "Error generating report",
+      error: error.message,
     });
   }
 };
@@ -129,30 +139,30 @@ exports.getAlerts = async (req, res) => {
        INNER JOIN ${TABLE_NAMES.assets} a ON d.iccid = a.iccid
        WHERE (CAST(d.dataUsed AS DECIMAL(15,2)) / NULLIF(CAST(d.dataSize AS DECIMAL(15,2)), 0)) >= ?
        ORDER BY usagePercent DESC`,
-      [threshold]
+      [threshold],
     );
 
     res.json({
       success: true,
       data: {
-        alerts: alerts.map(alert => ({
+        alerts: alerts.map((alert) => ({
           iccid: alert.iccid,
           msisdn: alert.msisdn,
           dataUsed: parseFloat(alert.dataUsed).toFixed(2),
           dataSize: parseFloat(alert.dataSize).toFixed(2),
           usagePercent: parseFloat(alert.usagePercent).toFixed(2),
-          lastConnection: alert.lastConnection
+          lastConnection: alert.lastConnection,
         })),
         threshold: threshold * 100,
-        count: alerts.length
-      }
+        count: alerts.length,
+      },
     });
   } catch (error) {
-    logger.error('Error fetching alerts:', error);
+    logger.error("Error fetching alerts:", error);
     res.status(500).json({
       success: false,
-      message: 'Error fetching alerts',
-      error: error.message
+      message: "Error fetching alerts",
+      error: error.message,
     });
   }
 };
@@ -216,21 +226,21 @@ exports.getProjectedAlerts = async (req, res) => {
        WHERE (((latest.dataUsed - first.dataUsed) / ?) * ? / NULLIF(latest.dataSize, 0)) >= ?
        ORDER BY projectedPercent DESC`,
       [
-        daysElapsed, 
-        totalDaysInMonth,
-        daysElapsed, 
-        totalDaysInMonth,
-        firstDayOfMonth.toISOString().split('T')[0] + ' 00:00:00',
         daysElapsed,
         totalDaysInMonth,
-        threshold
-      ]
+        daysElapsed,
+        totalDaysInMonth,
+        firstDayOfMonth.toISOString().split("T")[0] + " 00:00:00",
+        daysElapsed,
+        totalDaysInMonth,
+        threshold,
+      ],
     );
 
     res.json({
       success: true,
       data: {
-        alerts: projectedAlerts.map(alert => ({
+        alerts: projectedAlerts.map((alert) => ({
           iccid: alert.iccid,
           msisdn: alert.msisdn,
           currentUsed: parseFloat(alert.currentDataUsed).toFixed(2),
@@ -238,8 +248,11 @@ exports.getProjectedAlerts = async (req, res) => {
           usedThisMonth: parseFloat(alert.usedThisMonth).toFixed(2),
           projectedUsage: parseFloat(alert.projectedUsage).toFixed(2),
           projectedPercent: parseFloat(alert.projectedPercent).toFixed(2),
-          currentPercent: ((parseFloat(alert.currentDataUsed) / parseFloat(alert.dataSize)) * 100).toFixed(2),
-          lastConnection: alert.lastConnection
+          currentPercent: (
+            (parseFloat(alert.currentDataUsed) / parseFloat(alert.dataSize)) *
+            100
+          ).toFixed(2),
+          lastConnection: alert.lastConnection,
         })),
         threshold: threshold * 100,
         count: projectedAlerts.length,
@@ -247,16 +260,16 @@ exports.getProjectedAlerts = async (req, res) => {
           daysElapsed,
           totalDays: totalDaysInMonth,
           daysRemaining,
-          month: firstDayOfMonth.toISOString().split('T')[0]
-        }
-      }
+          month: firstDayOfMonth.toISOString().split("T")[0],
+        },
+      },
     });
   } catch (error) {
-    logger.error('Error fetching projected alerts:', error);
+    logger.error("Error fetching projected alerts:", error);
     res.status(500).json({
       success: false,
-      message: 'Error fetching projected alerts',
-      error: error.message
+      message: "Error fetching projected alerts",
+      error: error.message,
     });
   }
 };
@@ -269,13 +282,13 @@ exports.generateDynamicReport = async (req, res) => {
     const {
       metrics = [],
       filters = [],
-      groupBy = 'none',
+      groupBy = "none",
       startDate,
       endDate,
       uniqueIccid = false,
       sortBy,
-      sortOrder = 'desc',
-      limit = 1000
+      sortOrder = "desc",
+      limit = 1000,
     } = req.body;
 
     // Use query builder to construct dynamic query
@@ -288,7 +301,7 @@ exports.generateDynamicReport = async (req, res) => {
       uniqueIccid,
       sortBy,
       sortOrder,
-      limit
+      limit,
     });
 
     const [results] = await promisePool.query(query, params);
@@ -298,15 +311,15 @@ exports.generateDynamicReport = async (req, res) => {
       data: {
         report: results,
         filters: { metrics, filters, groupBy, startDate, endDate },
-        count: results.length
-      }
+        count: results.length,
+      },
     });
   } catch (error) {
-    logger.error('Error generating dynamic report:', error);
+    logger.error("Error generating dynamic report:", error);
     res.status(500).json({
       success: false,
-      message: error.message || 'Error generating dynamic report',
-      error: error.message
+      message: error.message || "Error generating dynamic report",
+      error: error.message,
     });
   }
 };
@@ -324,8 +337,8 @@ exports.getMonthlyUsage = async (req, res) => {
     const startDate = new Date();
     startDate.setMonth(startDate.getMonth() - monthsBack);
 
-    const startDateStr = startDate.toISOString().split('T')[0] + ' 00:00:00';
-    const endDateStr = endDate.toISOString().split('T')[0] + ' 23:59:59';
+    const startDateStr = startDate.toISOString().split("T")[0] + " 00:00:00";
+    const endDateStr = endDate.toISOString().split("T")[0] + " 23:59:59";
 
     const [monthlyData] = await promisePool.query(
       `SELECT 
@@ -348,17 +361,17 @@ exports.getMonthlyUsage = async (req, res) => {
        WHERE d.createdTime >= ? AND d.createdTime <= ?
        GROUP BY DATE_FORMAT(d.createdTime, '%Y-%m')
        ORDER BY month ASC`,
-      [startDateStr, endDateStr, startDateStr, endDateStr]
+      [startDateStr, endDateStr, startDateStr, endDateStr],
     );
 
     // Convert MB to GB
-    const formattedData = monthlyData.map(row => ({
+    const formattedData = monthlyData.map((row) => ({
       month: row.month,
       totalDataUsedGB: parseFloat((row.totalDataUsed / 1024).toFixed(2)),
       totalDataSizeGB: parseFloat((row.totalDataSize / 1024).toFixed(2)),
       avgUsagePercent: parseFloat(row.avgUsagePercent || 0).toFixed(2),
       simCount: row.simCount,
-      recordCount: row.recordCount
+      recordCount: row.recordCount,
     }));
 
     res.json({
@@ -366,15 +379,15 @@ exports.getMonthlyUsage = async (req, res) => {
       data: {
         monthlyUsage: formattedData,
         period: `${monthsBack} months`,
-        unit: 'GB'
-      }
+        unit: "GB",
+      },
     });
   } catch (error) {
-    logger.error('Error fetching monthly usage:', error);
+    logger.error("Error fetching monthly usage:", error);
     res.status(500).json({
       success: false,
-      message: 'Error fetching monthly usage data',
-      error: error.message
+      message: "Error fetching monthly usage data",
+      error: error.message,
     });
   }
 };
@@ -387,28 +400,30 @@ exports.getReportMetadata = async (req, res) => {
     res.json({
       success: true,
       data: {
-        fields: Object.keys(FIELD_METADATA).map(key => ({
+        fields: Object.keys(FIELD_METADATA).map((key) => ({
           name: key,
           type: FIELD_METADATA[key].type,
-          label: key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())
-        })),
-        operators: Object.keys(OPERATORS).map(key => ({
-          value: key,
           label: key
+            .replace(/([A-Z])/g, " $1")
+            .replace(/^./, (str) => str.toUpperCase()),
+        })),
+        operators: Object.keys(OPERATORS).map((key) => ({
+          value: key,
+          label: key,
         })),
         groupByOptions: [
-          { value: 'none', label: 'No Grouping' },
-          { value: 'day', label: 'Daily' },
-          { value: 'month', label: 'Monthly' }
-        ]
-      }
+          { value: "none", label: "No Grouping" },
+          { value: "day", label: "Daily" },
+          { value: "month", label: "Monthly" },
+        ],
+      },
     });
   } catch (error) {
-    logger.error('Error fetching report metadata:', error);
+    logger.error("Error fetching report metadata:", error);
     res.status(500).json({
       success: false,
-      message: 'Error fetching report metadata',
-      error: error.message
+      message: "Error fetching report metadata",
+      error: error.message,
     });
   }
 };

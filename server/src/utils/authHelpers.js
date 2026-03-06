@@ -1,6 +1,6 @@
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
-const crypto = require('crypto');
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
+const crypto = require("crypto");
 
 /**
  * Hash a plain text password using bcrypt
@@ -33,11 +33,11 @@ function generateJWT(user) {
     email: user.email,
     username: user.username,
     role: user.role,
-    status: user.status
+    status: user.status,
   };
 
-  const secret = process.env.JWT_SECRET || 'sim_dashboard_secret_key_dev_only';
-  const expiresIn = process.env.JWT_EXPIRE || '7d';
+  const secret = process.env.JWT_SECRET;
+  const expiresIn = process.env.JWT_EXPIRE || "7d";
 
   return jwt.sign(payload, secret, { expiresIn });
 }
@@ -49,7 +49,7 @@ function generateJWT(user) {
  */
 function verifyJWT(token) {
   try {
-    const secret = process.env.JWT_SECRET || 'sim_dashboard_secret_key_dev_only';
+    const secret = process.env.JWT_SECRET;
     return jwt.verify(token, secret);
   } catch (error) {
     return null;
@@ -61,7 +61,7 @@ function verifyJWT(token) {
  * @returns {string} Random token
  */
 function generateVerificationToken() {
-  return crypto.randomBytes(32).toString('hex');
+  return crypto.randomBytes(32).toString("hex");
 }
 
 /**
@@ -83,10 +83,10 @@ function validatePassword(password) {
   if (!password || password.length < 8) {
     return {
       valid: false,
-      message: 'Password must be at least 8 characters long'
+      message: "Password must be at least 8 characters long",
     };
   }
-  return { valid: true, message: 'Password is valid' };
+  return { valid: true, message: "Password is valid" };
 }
 
 /**
@@ -108,22 +108,23 @@ function validateUsername(username) {
   if (!username || username.length < 3) {
     return {
       valid: false,
-      message: 'Username must be at least 3 characters long'
+      message: "Username must be at least 3 characters long",
     };
   }
   if (username.length > 50) {
     return {
       valid: false,
-      message: 'Username must not exceed 50 characters'
+      message: "Username must not exceed 50 characters",
     };
   }
   if (!/^[a-zA-Z0-9_-]+$/.test(username)) {
     return {
       valid: false,
-      message: 'Username can only contain letters, numbers, hyphens, and underscores'
+      message:
+        "Username can only contain letters, numbers, hyphens, and underscores",
     };
   }
-  return { valid: true, message: 'Username is valid' };
+  return { valid: true, message: "Username is valid" };
 }
 
 module.exports = {
@@ -135,5 +136,5 @@ module.exports = {
   getVerificationExpiry,
   validatePassword,
   validateEmail,
-  validateUsername
+  validateUsername,
 };

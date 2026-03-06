@@ -53,6 +53,8 @@ CREATE TABLE IF NOT EXISTS `users` (
   `verification_expires`   DATETIME DEFAULT NULL,
   `password_reset_token`   VARCHAR(255) DEFAULT NULL,
   `password_reset_expires` DATETIME DEFAULT NULL,
+  `failed_login_attempts`  INT DEFAULT 0 COMMENT 'Consecutive failed login attempts',
+  `locked_until`           DATETIME DEFAULT NULL COMMENT 'Account locked until this time',
   `created_at`             DATETIME DEFAULT CURRENT_TIMESTAMP,
   `updated_at`             DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   INDEX `idx_email`                (`email`),
@@ -121,6 +123,24 @@ CREATE TABLE IF NOT EXISTS `user_preferences` (
 -- ============================================================
 -- Test / Sample Data Tables (optional - used when USE_TEST_DATA=true)
 -- ============================================================
+
+-- ------------------------------------------------------------
+-- 7. System Settings (admin-configurable key/value store)
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `system_settings` (
+  `id`            INT AUTO_INCREMENT PRIMARY KEY,
+  `setting_key`   VARCHAR(100) NOT NULL UNIQUE,
+  `setting_value` TEXT NOT NULL,
+  `description`   VARCHAR(255) DEFAULT NULL,
+  `updated_by`    INT DEFAULT NULL,
+  `updated_at`    DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX `idx_setting_key` (`setting_key`),
+  CONSTRAINT `fk_settings_user` FOREIGN KEY (`updated_by`) REFERENCES `users`(`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Seed default system settings
+INSERT IGNORE INTO `system_settings` (`setting_key`, `setting_value`, `description`)
+VALUES ('billed_mb_per_sim', '200', 'Billed data capacity in MB per SIM card for pool utilization calculation');
 
 CREATE TABLE IF NOT EXISTS `assets_test` (
   `id`          INT AUTO_INCREMENT PRIMARY KEY,

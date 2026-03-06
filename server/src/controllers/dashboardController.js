@@ -1,5 +1,6 @@
-const logger = require('../utils/logger');
-const { promisePool, TABLE_NAMES } = require('../config/database');
+const logger = require("../utils/logger");
+const { promisePool, TABLE_NAMES } = require("../config/database");
+const { catDate, catDateStr, catStartOfDay } = require("../utils/catDate");
 
 /**
  * Get dashboard statistics
@@ -13,13 +14,13 @@ exports.getDashboardStats = async (req, res) => {
     const alertThreshold = parseFloat(req.query.threshold) || 0.8; // Default 80%
 
     // Get current month date range
-    const now = new Date();
+    const now = catDate();
     const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const firstDayStr = firstDayOfMonth.toISOString().split('T')[0] + ' 00:00:00';
+    const firstDayStr = catStartOfDay(firstDayOfMonth);
 
     // Query 1: Total Active SIMs
     const [simCount] = await promisePool.query(
-      `SELECT COUNT(DISTINCT id) as totalSims FROM ${TABLE_NAMES.assets}`
+      `SELECT COUNT(DISTINCT id) as totalSims FROM ${TABLE_NAMES.assets}`,
     );
 
     // Query 2: Monthly Total Usage (latest record per SIM for current month)
@@ -35,14 +36,32 @@ exports.getDashboardStats = async (req, res) => {
          GROUP BY iccid
        ) latest ON d.id = latest.maxId
        INNER JOIN ${TABLE_NAMES.assets} a ON d.iccid = a.iccid`,
-      [firstDayStr]
+      [firstDayStr],
     );
 
-    // Query 3: Pool Utilization (latest record per SIM)
-    // Only include SIMs that exist in the assets table
+    // Query 3: Pool Utilization — use admin-configured billed_mb_per_sim × totalSims
+    // Fetch billed_mb_per_sim from system_settings
+    let billedMbPerSim = 200; // default fallback
+    try {
+      const [settingsRows] = await promisePool.query(
+        "SELECT setting_value FROM system_settings WHERE setting_key = 'billed_mb_per_sim'",
+      );
+      if (settingsRows.length > 0) {
+        billedMbPerSim = parseFloat(settingsRows[0].setting_value) || 200;
+      }
+    } catch (e) {
+      logger.warn(
+        "Could not fetch billed_mb_per_sim setting, using default:",
+        e.message,
+      );
+    }
+
+    const totalSims = simCount[0].totalSims;
+    const totalCapacityMB = billedMbPerSim * totalSims;
+
+    // Still need totalUsed from latest records
     const [poolData] = await promisePool.query(
       `SELECT 
-        SUM(CAST(d.dataSize AS DECIMAL(15,2))) as totalCapacity,
         SUM(CAST(d.dataUsed AS DECIMAL(15,2))) as totalUsed
        FROM ${TABLE_NAMES.data} d
        INNER JOIN (
@@ -50,7 +69,7 @@ exports.getDashboardStats = async (req, res) => {
          FROM ${TABLE_NAMES.data}
          GROUP BY iccid
        ) latest ON d.id = latest.maxId
-       INNER JOIN ${TABLE_NAMES.assets} a ON d.iccid = a.iccid`
+       INNER JOIN ${TABLE_NAMES.assets} a ON d.iccid = a.iccid`,
     );
 
     // Query 4: Count alerts (SIMs above threshold)
@@ -70,13 +89,14 @@ exports.getDashboardStats = async (req, res) => {
          INNER JOIN ${TABLE_NAMES.assets} a ON d.iccid = a.iccid
          HAVING usageRatio >= ?
        ) as alertSims`,
-      [alertThreshold]
+      [alertThreshold],
     );
 
     // Calculate pool utilization percentage
-    const capacity = parseFloat(poolData[0]?.totalCapacity) || 0;
+    const capacity = totalCapacityMB;
     const used = parseFloat(poolData[0]?.totalUsed) || 0;
-    const utilizationPercent = capacity > 0 ? ((used / capacity) * 100).toFixed(2) : 0;
+    const utilizationPercent =
+      capacity > 0 ? ((used / capacity) * 100).toFixed(2) : 0;
 
     // Convert MB to GB
     const monthlyUsageGB = parseFloat(monthlyUsage[0].totalUsed) / 1024;
@@ -85,7 +105,11 @@ exports.getDashboardStats = async (req, res) => {
 
     // Calculate projected monthly usage
     const currentDay = now.getDate(); // Day of month (1-31)
-    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    const daysInMonth = new Date(
+      now.getFullYear(),
+      now.getMonth() + 1,
+      0,
+    ).getDate();
     const dailyAverage = monthlyUsageGB / currentDay;
     const projectedUsageGB = dailyAverage * daysInMonth;
 
@@ -94,30 +118,30 @@ exports.getDashboardStats = async (req, res) => {
       data: {
         totalSims: simCount[0].totalSims,
         monthlyUsage: monthlyUsageGB.toFixed(2),
-        monthlyUsageUnit: 'GB',
+        monthlyUsageUnit: "GB",
         projectedUsage: projectedUsageGB.toFixed(2),
-        projectedUsageUnit: 'GB',
+        projectedUsageUnit: "GB",
         projectionData: {
           daysElapsed: currentDay,
           daysInMonth: daysInMonth,
-          dailyAverage: dailyAverage.toFixed(2)
+          dailyAverage: dailyAverage.toFixed(2),
         },
         poolUtilization: {
           totalCapacity: capacityGB.toFixed(2),
           totalUsed: usedGB.toFixed(2),
-          unit: 'GB',
-          percentage: parseFloat(utilizationPercent)
+          unit: "GB",
+          percentage: parseFloat(utilizationPercent),
         },
         alerts: alerts[0].alertCount,
-        alertThreshold: alertThreshold * 100
-      }
+        alertThreshold: alertThreshold * 100,
+      },
     });
   } catch (error) {
-    logger.error('Error fetching dashboard stats:', error);
+    logger.error("Error fetching dashboard stats:", error);
     res.status(500).json({
       success: false,
-      message: 'Error fetching dashboard statistics',
-      error: error.message
+      message: "Error fetching dashboard statistics",
+      error: error.message,
     });
   }
 };
@@ -128,17 +152,18 @@ exports.getDashboardStats = async (req, res) => {
 exports.getTopConsumers = async (req, res) => {
   try {
     const limit = parseInt(req.query.limit) || 10;
-    const period = req.query.period || 'month'; // month, week, all
+    const period = req.query.period || "month"; // month, week, all
 
     // Build the date condition for the subquery
-    let subqueryCondition = '1=1';
-    if (period === 'month') {
-      const firstDay = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
-      const firstDayStr = firstDay.toISOString().split('T')[0] + ' 00:00:00';
+    let subqueryCondition = "1=1";
+    if (period === "month") {
+      const cd = catDate();
+      const firstDay = new Date(cd.getFullYear(), cd.getMonth(), 1);
+      const firstDayStr = catStartOfDay(firstDay);
       subqueryCondition = `createdTime >= '${firstDayStr}'`;
-    } else if (period === 'week') {
+    } else if (period === "week") {
       const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-      const weekAgoStr = weekAgo.toISOString().split('T')[0] + ' 00:00:00';
+      const weekAgoStr = catStartOfDay(weekAgo);
       subqueryCondition = `createdTime >= '${weekAgoStr}'`;
     }
 
@@ -160,26 +185,26 @@ exports.getTopConsumers = async (req, res) => {
        INNER JOIN ${TABLE_NAMES.assets} a ON d.iccid = a.iccid
        ORDER BY totalUsed DESC
        LIMIT ?`,
-      [limit]
+      [limit],
     );
 
     res.json({
       success: true,
-      data: topUsers.map(user => ({
+      data: topUsers.map((user) => ({
         iccid: user.iccid,
         msisdn: user.msisdn,
         totalUsed: parseFloat(user.totalUsed).toFixed(2),
         dataSize: parseFloat(user.dataSize).toFixed(2),
         usagePercent: parseFloat(user.usagePercent || 0).toFixed(2),
-        lastConnection: user.lastConnection
-      }))
+        lastConnection: user.lastConnection,
+      })),
     });
   } catch (error) {
-    logger.error('Error fetching top consumers:', error);
+    logger.error("Error fetching top consumers:", error);
     res.status(500).json({
       success: false,
-      message: 'Error fetching top consumers',
-      error: error.message
+      message: "Error fetching top consumers",
+      error: error.message,
     });
   }
 };
@@ -191,19 +216,33 @@ exports.getTopConsumers = async (req, res) => {
 exports.getMonthlyComparison = async (req, res) => {
   try {
     const now = new Date();
-    
+
     // Current month range
     const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const currentMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
-    
+    const currentMonthEnd = new Date(
+      now.getFullYear(),
+      now.getMonth() + 1,
+      0,
+      23,
+      59,
+      59,
+    );
+
     // Last month range
     const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
-    
-    // Format dates for SQL
-    const formatDate = (date) => date.toISOString().split('T')[0] + ' 00:00:00';
-    const formatDateEnd = (date) => date.toISOString().split('T')[0] + ' 23:59:59';
-    
+    const lastMonthEnd = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      0,
+      23,
+      59,
+      59,
+    );
+
+    // Format dates for SQL in CAT
+    const formatDate = (date) => catStartOfDay(date);
+    const formatDateEnd = (date) => catDateStr(date) + " 23:59:59";
+
     // Query for last month data grouped by day
     // Only include SIMs that exist in the assets table
     const [lastMonthData] = await promisePool.query(
@@ -215,9 +254,9 @@ exports.getMonthlyComparison = async (req, res) => {
        WHERE d.createdTime >= ? AND d.createdTime <= ?
        GROUP BY DATE(d.createdTime)
        ORDER BY date ASC`,
-      [formatDate(lastMonthStart), formatDateEnd(lastMonthEnd)]
+      [formatDate(lastMonthStart), formatDateEnd(lastMonthEnd)],
     );
-    
+
     // Query for current month data grouped by day
     // Only include SIMs that exist in the assets table
     const [currentMonthData] = await promisePool.query(
@@ -229,42 +268,50 @@ exports.getMonthlyComparison = async (req, res) => {
        WHERE d.createdTime >= ? AND d.createdTime <= ?
        GROUP BY DATE(d.createdTime)
        ORDER BY date ASC`,
-      [formatDate(currentMonthStart), formatDateEnd(currentMonthEnd)]
+      [formatDate(currentMonthStart), formatDateEnd(currentMonthEnd)],
     );
-    
+
     // Convert MB to GB and format response
-    const lastMonth = lastMonthData.map(row => ({
+    const lastMonth = lastMonthData.map((row) => ({
       date: row.date,
       day: new Date(row.date).getDate(),
-      usage: parseFloat((row.totalUsage / 1024).toFixed(2))
+      usage: parseFloat((row.totalUsage / 1024).toFixed(2)),
     }));
-    
-    const currentMonth = currentMonthData.map(row => ({
+
+    const currentMonth = currentMonthData.map((row) => ({
       date: row.date,
       day: new Date(row.date).getDate(),
-      usage: parseFloat((row.totalUsage / 1024).toFixed(2))
+      usage: parseFloat((row.totalUsage / 1024).toFixed(2)),
     }));
-    
+
     res.json({
       success: true,
       data: {
         lastMonth: {
-          name: lastMonthStart.toLocaleString('default', { month: 'long', year: 'numeric' }),
-          data: lastMonth
+          name: lastMonthStart.toLocaleString("default", {
+            month: "long",
+            year: "numeric",
+            timeZone: "Africa/Harare",
+          }),
+          data: lastMonth,
         },
         currentMonth: {
-          name: currentMonthStart.toLocaleString('default', { month: 'long', year: 'numeric' }),
-          data: currentMonth
+          name: currentMonthStart.toLocaleString("default", {
+            month: "long",
+            year: "numeric",
+            timeZone: "Africa/Harare",
+          }),
+          data: currentMonth,
         },
-        unit: 'GB'
-      }
+        unit: "GB",
+      },
     });
   } catch (error) {
-    logger.error('Error fetching monthly comparison:', error);
+    logger.error("Error fetching monthly comparison:", error);
     res.status(500).json({
       success: false,
-      message: 'Error fetching monthly comparison data',
-      error: error.message
+      message: "Error fetching monthly comparison data",
+      error: error.message,
     });
   }
 };

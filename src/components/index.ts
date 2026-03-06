@@ -6,3 +6,4 @@ export { SearchBox } from "./layout/SearchBox";
 export { LetterAvatar } from "./LetterAvatar";
 export { FullscreenButton } from "./FullscreenButton";
 export { SmallBox } from "./widgets/SmallBox";
+export { SimCardSvg } from "./SimCardSvg";
