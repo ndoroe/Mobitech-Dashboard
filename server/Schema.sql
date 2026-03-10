@@ -142,6 +142,67 @@ CREATE TABLE IF NOT EXISTS `system_settings` (
 INSERT IGNORE INTO `system_settings` (`setting_key`, `setting_value`, `description`)
 VALUES ('billed_mb_per_sim', '200', 'Billed data capacity in MB per SIM card for pool utilization calculation');
 
+-- ------------------------------------------------------------
+-- Performance indexes for Data table
+-- ------------------------------------------------------------
+-- These speed up weekly-usage and top-consumer queries
+SET @idx_exists = (SELECT COUNT(1) FROM information_schema.statistics
+                   WHERE table_schema = DATABASE() AND table_name = 'Data'
+                   AND index_name = 'idx_data_iccid_created');
+SET @sql = IF(@idx_exists = 0,
+  'ALTER TABLE `Data` ADD INDEX `idx_data_iccid_created` (`iccid`, `createdTime`)',
+  'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @idx_exists = (SELECT COUNT(1) FROM information_schema.statistics
+                   WHERE table_schema = DATABASE() AND table_name = 'Data'
+                   AND index_name = 'idx_data_iccid_id');
+SET @sql = IF(@idx_exists = 0,
+  'ALTER TABLE `Data` ADD INDEX `idx_data_iccid_id` (`iccid`, `id`)',
+  'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- ------------------------------------------------------------
+-- View: vw_weekly_usage
+-- Weekly data consumption per SIM (current − Sunday baseline)
+-- Sunday = start of current week (Sun–Sat), using CAT (UTC+2)
+-- ------------------------------------------------------------
+CREATE OR REPLACE VIEW `vw_weekly_usage` AS
+SELECT
+  cur.iccid,
+  cur.msisdn,
+  CAST(cur.dataUsed AS DECIMAL(15,2))                                             AS currentUsed,
+  CAST(COALESCE(base.dataUsed, 0) AS DECIMAL(15,2))                               AS sundayUsed,
+  CAST(cur.dataUsed AS DECIMAL(15,2))
+    - CAST(COALESCE(base.dataUsed, 0) AS DECIMAL(15,2))                           AS weekUsed,
+  CAST(cur.dataSize AS DECIMAL(15,2))                                              AS dataSize,
+  cur.lastConnection,
+  CAST(cur.dataUsed AS DECIMAL(15,2))
+    / NULLIF(CAST(cur.dataSize AS DECIMAL(15,2)), 0) * 100                        AS usagePercent
+FROM `Data` cur
+INNER JOIN (
+  SELECT iccid, MAX(id) AS maxId
+  FROM `Data`
+  GROUP BY iccid
+) latest ON cur.id = latest.maxId
+LEFT JOIN (
+  SELECT iccid, MAX(id) AS maxId
+  FROM `Data`
+  WHERE createdTime < DATE_FORMAT(
+    CONVERT_TZ(
+      DATE_SUB(CURDATE(), INTERVAL DAYOFWEEK(CURDATE()) - 1 DAY),
+      '+00:00', '+02:00'
+    ),
+    '%Y-%m-%d 00:00:00'
+  )
+  GROUP BY iccid
+) baseRef ON baseRef.iccid = cur.iccid
+LEFT JOIN `Data` base ON base.id = baseRef.maxId
+INNER JOIN `assets` a ON cur.iccid = a.iccid;
+
+-- ------------------------------------------------------------
+-- Test tables
+-- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS `assets_test` (
   `id`          INT AUTO_INCREMENT PRIMARY KEY,
   `iccid`       VARCHAR(20) NOT NULL UNIQUE,

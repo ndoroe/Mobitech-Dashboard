@@ -162,9 +162,26 @@ exports.getTopConsumers = async (req, res) => {
       const firstDayStr = catStartOfDay(firstDay);
       subqueryCondition = `createdTime >= '${firstDayStr}'`;
     } else if (period === "week") {
-      const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-      const weekAgoStr = catStartOfDay(weekAgo);
-      subqueryCondition = `createdTime >= '${weekAgoStr}'`;
+      // Use the vw_weekly_usage view: current dataUsed − Sunday baseline, ordered by highest delta
+      const [topUsers] = await promisePool.query(
+        `SELECT iccid, msisdn, weekUsed AS totalUsed, dataSize, lastConnection, usagePercent
+         FROM vw_weekly_usage
+         ORDER BY weekUsed DESC
+         LIMIT ?`,
+        [limit],
+      );
+
+      return res.json({
+        success: true,
+        data: topUsers.map((user) => ({
+          iccid: user.iccid,
+          msisdn: user.msisdn,
+          totalUsed: parseFloat(user.totalUsed).toFixed(2),
+          dataSize: parseFloat(user.dataSize).toFixed(2),
+          usagePercent: parseFloat(user.usagePercent || 0).toFixed(2),
+          lastConnection: user.lastConnection,
+        })),
+      });
     }
 
     const [topUsers] = await promisePool.query(

@@ -203,10 +203,35 @@ app.use("/api/settings", authenticateToken, requireActive, settingsRoutes);
 // Serve React build in production
 if (isProduction) {
   const buildPath = path.join(__dirname, "../../build");
-  app.use(express.static(buildPath));
+
+  // service-worker.js must never be cached by browsers/CDNs
+  app.get("/service-worker.js", (req, res) => {
+    res.set("Cache-Control", "no-cache, no-store, must-revalidate");
+    res.sendFile(path.join(buildPath, "service-worker.js"));
+  });
+
+  // favicon.ico — short cache so updates propagate quickly
+  app.get("/favicon.ico", (req, res) => {
+    res.set("Cache-Control", "public, max-age=3600");
+    res.sendFile(path.join(buildPath, "favicon.ico"));
+  });
+
+  // Hashed static assets — immutable long-term cache (hash changes on rebuild)
+  app.use(
+    "/static",
+    express.static(path.join(buildPath, "static"), {
+      maxAge: "1y",
+      immutable: true,
+    }),
+  );
+
+  // Other build assets (manifest, icons, etc.) — short cache
+  app.use(express.static(buildPath, { maxAge: "1h" }));
 
   // All non-API routes serve React index.html (client-side routing)
+  // Must never be cached so the browser always gets the latest entry point
   app.get("*", (req, res) => {
+    res.set("Cache-Control", "no-cache, no-store, must-revalidate");
     res.sendFile(path.join(buildPath, "index.html"));
   });
 } else {

@@ -1,79 +1,99 @@
-const CACHE_NAME = 'mobitech-dashboard-v1';
+// IMPORTANT: Bump this version string on every deploy so old caches are purged.
+// The deploy script updates this automatically.
+const CACHE_VERSION = 'v3';
+const CACHE_NAME = `mobitech-dashboard-${CACHE_VERSION}`;
 const urlsToCache = [
   '/',
   '/index.html',
   '/manifest.json',
-  '/logo192.png',
-  '/logo512.png',
-  '/favicon.ico',
 ];
 
-// Install event - cache resources
+// Install event - cache shell resources and activate immediately
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      console.log('Opened cache');
+      console.log('Service Worker: caching app shell');
       return cache.addAll(urlsToCache);
     })
   );
+  // Don't wait for old SW to retire — activate now
   self.skipWaiting();
 });
 
-// Activate event - clean up old caches
+// Activate event - delete ALL old caches
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
-        cacheNames.map((cacheName) => {
-          if (cacheName !== CACHE_NAME) {
-            console.log('Deleting old cache:', cacheName);
-            return caches.delete(cacheName);
+        cacheNames.map((name) => {
+          if (name !== CACHE_NAME) {
+            console.log('Service Worker: deleting old cache:', name);
+            return caches.delete(name);
           }
         })
       );
     })
   );
+  // Take control of all open tabs immediately
   self.clients.claim();
 });
 
-// Fetch event - serve from cache, fallback to network
+// Fetch event - network-first for HTML, cache-first for hashed static assets
 self.addEventListener('fetch', (event) => {
-  event.respondWith(
-    caches.match(event.request).then((response) => {
-      // Cache hit - return response
-      if (response) {
-        return response;
-      }
+  const { request } = event;
 
-      return fetch(event.request).then((response) => {
-        // Check if valid response
-        if (!response || response.status !== 200 || response.type !== 'basic') {
+  // Only handle GET requests
+  if (request.method !== 'GET') return;
+
+  // Never cache API calls
+  if (request.url.includes('/api/')) return;
+
+  // Never cache the service worker itself
+  if (request.url.includes('service-worker.js')) return;
+
+  // Navigation requests (HTML pages) — always go network-first
+  if (request.mode === 'navigate' || request.headers.get('accept')?.includes('text/html')) {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          // Cache the latest index.html for offline fallback
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
           return response;
-        }
+        })
+        .catch(() => caches.match('/index.html'))
+    );
+    return;
+  }
 
-        // Don't cache non-GET requests
-        if (event.request.method !== 'GET') {
+  // Hashed static assets (/static/js/*, /static/css/*) — cache-first (safe, hash changes on rebuild)
+  if (request.url.includes('/static/')) {
+    event.respondWith(
+      caches.match(request).then((cached) => {
+        if (cached) return cached;
+        return fetch(request).then((response) => {
+          if (response && response.status === 200) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+          }
           return response;
-        }
-
-        // Don't cache API requests (can be customized)
-        if (event.request.url.includes('/api/')) {
-          return response;
-        }
-
-        // Clone the response
-        const responseToCache = response.clone();
-
-        caches.open(CACHE_NAME).then((cache) => {
-          cache.put(event.request, responseToCache);
         });
+      })
+    );
+    return;
+  }
 
+  // Everything else — network-first with cache fallback
+  event.respondWith(
+    fetch(request)
+      .then((response) => {
+        if (response && response.status === 200 && response.type === 'basic') {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+        }
         return response;
-      }).catch(() => {
-        // If both cache and network fail, return offline page
-        return caches.match('/index.html');
-      });
-    })
+      })
+      .catch(() => caches.match(request))
   );
 });
 

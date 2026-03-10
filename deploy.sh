@@ -21,7 +21,7 @@ divider(){ echo -e "${CYAN}─────────────────�
 GITHUB_USER="ndoroe"
 GITHUB_REPO="Mobitech-Dashboard"
 DEPLOY_DIR="/root/mobitech/sim-dashboard"
-ENV_FILE="${DEPLOY_DIR}/.env"
+ENV_FILE="${DEPLOY_DIR}/server/.env"
 SCHEMA_FILE="${DEPLOY_DIR}/server/Schema.sql"
 PM2_APP_NAME="mobitech-sim-dashboard"
 
@@ -199,14 +199,17 @@ info "Running Schema.sql for database changes ..."
 if [[ ! -f "$SCHEMA_FILE" ]]; then
   err "Schema file not found at ${SCHEMA_FILE}. Skipping DB migration."
 else
-  # Read DB credentials from .env
-  DB_HOST=$(grep '^DB_HOST=' "$ENV_FILE" | cut -d'=' -f2-)
-  DB_PORT=$(grep '^DB_PORT=' "$ENV_FILE" | cut -d'=' -f2-)
-  DB_USER=$(grep '^DB_USER=' "$ENV_FILE" | cut -d'=' -f2-)
-  DB_PASS=$(grep '^DB_PASSWORD=' "$ENV_FILE" | cut -d'=' -f2-)
-  DB_NAME=$(grep '^DB_NAME=' "$ENV_FILE" | cut -d'=' -f2-)
+  # Read DB credentials from .env (|| true prevents set -e from aborting on missing keys)
+  DB_HOST=$(grep '^DB_HOST=' "$ENV_FILE" | cut -d'=' -f2- || true)
+  DB_PORT=$(grep '^DB_PORT=' "$ENV_FILE" | cut -d'=' -f2- || true)
+  DB_USER=$(grep '^DB_USER=' "$ENV_FILE" | cut -d'=' -f2- || true)
+  DB_PASS=$(grep '^DB_PASSWORD=' "$ENV_FILE" | cut -d'=' -f2- || true)
+  DB_NAME=$(grep '^DB_NAME=' "$ENV_FILE" | cut -d'=' -f2- || true)
 
-  if mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -p"$DB_PASS" "$DB_NAME" < "$SCHEMA_FILE" 2>&1; then
+  if [[ -z "$DB_HOST" || -z "$DB_USER" || -z "$DB_NAME" ]]; then
+    warn "DB credentials missing from ${ENV_FILE} (DB_HOST, DB_USER, DB_NAME are required)."
+    warn "Skipping schema migration — add credentials to .env and re-run."
+  elif mysql -h "$DB_HOST" -P "${DB_PORT:-3306}" -u "$DB_USER" -p"$DB_PASS" "$DB_NAME" < "$SCHEMA_FILE" 2>&1; then
     ok "Schema.sql executed successfully."
   else
     warn "Schema.sql had warnings (tables may already exist). Check above output."
@@ -234,6 +237,16 @@ divider
 info "Building React frontend for production ..."
 npm run build
 ok "Frontend build complete → ${DEPLOY_DIR}/build/"
+
+# Bump service-worker CACHE_VERSION so browsers purge stale caches
+SW_FILE="${DEPLOY_DIR}/build/service-worker.js"
+if [[ -f "$SW_FILE" ]]; then
+  DEPLOY_TS=$(date +%s)
+  sed -i "s/const CACHE_VERSION = '.*'/const CACHE_VERSION = '${NEW_VERSION}-${DEPLOY_TS}'/" "$SW_FILE"
+  # Keep source in sync for next build
+  sed -i "s/const CACHE_VERSION = '.*'/const CACHE_VERSION = '${NEW_VERSION}-${DEPLOY_TS}'/" "${DEPLOY_DIR}/public/service-worker.js"
+  ok "Service worker CACHE_VERSION → ${NEW_VERSION}-${DEPLOY_TS}"
+fi
 divider
 
 # ======================================================
