@@ -9,17 +9,17 @@ const { TABLE_NAMES } = require('../config/database');
  * Field metadata for type casting and validation
  */
 const FIELD_METADATA = {
-  iccid: { type: 'string', column: 'iccid' },
-  msisdn: { type: 'string', column: 'msisdn' },
-  dataUsed: { type: 'decimal', column: 'dataUsed', cast: 'CAST(dataUsed AS DECIMAL(15,2))' },
-  dataSize: { type: 'decimal', column: 'dataSize', cast: 'CAST(dataSize AS DECIMAL(15,2))' },
+  iccid: { type: 'string', column: 'd.iccid' },
+  msisdn: { type: 'string', column: 'd.msisdn' },
+  dataUsed: { type: 'decimal', column: 'd.dataUsed', cast: 'CAST(d.dataUsed AS DECIMAL(15,2))' },
+  dataSize: { type: 'decimal', column: 'd.dataSize', cast: 'CAST(d.dataSize AS DECIMAL(15,2))' },
   usagePercent: { 
     type: 'decimal', 
-    column: 'usagePercent', 
-    cast: '(CAST(dataUsed AS DECIMAL(15,2)) / NULLIF(CAST(dataSize AS DECIMAL(15,2)), 0) * 100)' 
+    column: 'd.usagePercent', 
+    cast: '(CAST(d.dataUsed AS DECIMAL(15,2)) / NULLIF(CAST(d.dataSize AS DECIMAL(15,2)), 0) * 100)' 
   },
-  lastConnection: { type: 'datetime', column: 'lastConnection' },
-  createdTime: { type: 'datetime', column: 'createdTime' }
+  lastConnection: { type: 'datetime', column: 'd.lastConnection' },
+  createdTime: { type: 'datetime', column: 'd.createdTime' }
 };
 
 /**
@@ -150,11 +150,11 @@ function formatValue(value, type) {
 function buildSelectClause(metrics) {
   if (!metrics || !Array.isArray(metrics) || metrics.length === 0) {
     // Default columns
-    return `iccid, msisdn, 
-            CAST(dataUsed AS DECIMAL(15,2)) as dataUsed, 
-            CAST(dataSize AS DECIMAL(15,2)) as dataSize,
-            (CAST(dataUsed AS DECIMAL(15,2)) / NULLIF(CAST(dataSize AS DECIMAL(15,2)), 0) * 100) as usagePercent,
-            lastConnection, createdTime`;
+    return `d.iccid, d.msisdn, 
+            CAST(d.dataUsed AS DECIMAL(15,2)) as dataUsed, 
+            CAST(d.dataSize AS DECIMAL(15,2)) as dataSize,
+            (CAST(d.dataUsed AS DECIMAL(15,2)) / NULLIF(CAST(d.dataSize AS DECIMAL(15,2)), 0) * 100) as usagePercent,
+            d.lastConnection, d.createdTime`;
   }
 
   const columns = metrics.map(metric => {
@@ -208,11 +208,11 @@ function buildReportQuery(options) {
   // Add date range conditions
   let dateConditions = [];
   if (startDate) {
-    dateConditions.push('createdTime >= ?');
+    dateConditions.push('d.createdTime >= ?');
     params.push(formatValue(startDate, 'datetime'));
   }
   if (endDate) {
-    dateConditions.push('createdTime <= ?');
+    dateConditions.push('d.createdTime <= ?');
     params.push(formatValue(endDate, 'datetime'));
   }
 
@@ -221,26 +221,26 @@ function buildReportQuery(options) {
 
   // Build GROUP BY clause
   let groupByClause = '';
-  let orderByClause = 'ORDER BY createdTime DESC';
+  let orderByClause = 'ORDER BY d.createdTime DESC';
 
   if (groupBy === 'day' || groupBy === 'month') {
     // When grouping is applied, override selectClause with aggregated metrics
     // This is intentional as individual metrics don't make sense with grouping
     if (groupBy === 'day') {
-      selectClause = `DATE(createdTime) as date, 
-                      SUM(CAST(dataUsed AS DECIMAL(15,2))) as totalDataUsed,
-                      SUM(CAST(dataSize AS DECIMAL(15,2))) as totalDataSize,
-                      AVG(CAST(dataUsed AS DECIMAL(15,2)) / NULLIF(CAST(dataSize AS DECIMAL(15,2)), 0) * 100) as avgUsagePercent,
-                      COUNT(DISTINCT iccid) as simCount`;
-      groupByClause = 'GROUP BY DATE(createdTime)';
+      selectClause = `DATE(d.createdTime) as date, 
+                      SUM(CAST(d.dataUsed AS DECIMAL(15,2))) as totalDataUsed,
+                      SUM(CAST(d.dataSize AS DECIMAL(15,2))) as totalDataSize,
+                      AVG(CAST(d.dataUsed AS DECIMAL(15,2)) / NULLIF(CAST(d.dataSize AS DECIMAL(15,2)), 0) * 100) as avgUsagePercent,
+                      COUNT(DISTINCT d.iccid) as simCount`;
+      groupByClause = 'GROUP BY DATE(d.createdTime)';
       orderByClause = 'ORDER BY date DESC';
     } else if (groupBy === 'month') {
-      selectClause = `DATE_FORMAT(createdTime, '%Y-%m') as month,
-                      SUM(CAST(dataUsed AS DECIMAL(15,2))) as totalDataUsed,
-                      SUM(CAST(dataSize AS DECIMAL(15,2))) as totalDataSize,
-                      AVG(CAST(dataUsed AS DECIMAL(15,2)) / NULLIF(CAST(dataSize AS DECIMAL(15,2)), 0) * 100) as avgUsagePercent,
-                      COUNT(DISTINCT iccid) as simCount`;
-      groupByClause = 'GROUP BY DATE_FORMAT(createdTime, \'%Y-%m\')';
+      selectClause = `DATE_FORMAT(d.createdTime, '%Y-%m') as month,
+                      SUM(CAST(d.dataUsed AS DECIMAL(15,2))) as totalDataUsed,
+                      SUM(CAST(d.dataSize AS DECIMAL(15,2))) as totalDataSize,
+                      AVG(CAST(d.dataUsed AS DECIMAL(15,2)) / NULLIF(CAST(d.dataSize AS DECIMAL(15,2)), 0) * 100) as avgUsagePercent,
+                      COUNT(DISTINCT d.iccid) as simCount`;
+      groupByClause = 'GROUP BY DATE_FORMAT(d.createdTime, \'%Y-%m\')';
       orderByClause = 'ORDER BY month DESC';
     }
   } else {
@@ -265,12 +265,12 @@ function buildReportQuery(options) {
       FROM ${TABLE_NAMES.data} d
       INNER JOIN ${TABLE_NAMES.assets} a ON d.iccid = a.iccid
       INNER JOIN (
-        SELECT iccid, MAX(createdTime) as maxTime
-        FROM ${TABLE_NAMES.data}
+        SELECT d.iccid, MAX(d.createdTime) as maxTime
+        FROM ${TABLE_NAMES.data} d
         WHERE ${allConditions}
-        GROUP BY iccid
+        GROUP BY d.iccid
       ) latest ON d.iccid = latest.iccid AND d.createdTime = latest.maxTime
-    ) AS filtered_data`;
+    ) AS d`;
     // Reset allConditions to 1=1 since filtering is done in subquery
     // But we still need to maintain the structure
   }

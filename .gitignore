@@ -36,4 +36,5 @@ dummy-data.sh
 .env
 .env.development
 server/.email-sent-log.json
-
+public/uploads
+.github

@@ -157,34 +157,19 @@ async function fetchUserAlertData(user) {
       `[Email Scheduler] Thresholds - warning: ${warningThreshold}, critical: ${criticalThreshold}, projected: ${projectedThreshold}`,
     );
 
-    // Fetch billed_mb_per_sim from system_settings for capacity calculation
-    let billedMbPerSim = 200;
-    try {
-      const [settingsRows] = await promisePool.query(
-        "SELECT setting_value FROM system_settings WHERE setting_key = 'billed_mb_per_sim'",
-      );
-      if (settingsRows.length > 0) {
-        billedMbPerSim = parseFloat(settingsRows[0].setting_value) || 200;
-      }
-    } catch (e) {
-      console.warn(
-        "[Email Scheduler] Could not fetch billed_mb_per_sim, using default 200",
-      );
-    }
-
     // Fetch current usage alerts from Data table (latest record per SIM only)
-    // Usage percentage is now based on billed_mb_per_sim capacity
+    // Usage percentage based on per-SIM dataSize (consistent with dashboard)
     console.log(
-      `[Email Scheduler] Querying current alerts from ${TABLE_NAMES.data} (billedMb=${billedMbPerSim})...`,
+      `[Email Scheduler] Querying current alerts from ${TABLE_NAMES.data}...`,
     );
     const [currentAlerts] = await promisePool.query(
       `
       SELECT 
         d.iccid,
         d.msisdn,
-        (CAST(d.dataUsed AS DECIMAL(15,2)) / ?) as usage_percentage,
+        (CAST(d.dataUsed AS DECIMAL(15,2)) / NULLIF(CAST(d.dataSize AS DECIMAL(15,2)), 0)) as usage_percentage,
         CAST(d.dataUsed AS DECIMAL(15,2)) as used_this_month,
-        ? as capacity
+        CAST(d.dataSize AS DECIMAL(15,2)) as capacity
       FROM ${TABLE_NAMES.data} d
       INNER JOIN (
         SELECT iccid, MAX(id) as maxId
@@ -192,11 +177,11 @@ async function fetchUserAlertData(user) {
         GROUP BY iccid
       ) latest ON d.id = latest.maxId
       INNER JOIN ${TABLE_NAMES.assets} a ON d.iccid = a.iccid
-      WHERE (CAST(d.dataUsed AS DECIMAL(15,2)) / ?) >= ?
+      WHERE (CAST(d.dataUsed AS DECIMAL(15,2)) / NULLIF(CAST(d.dataSize AS DECIMAL(15,2)), 0)) >= ?
       ORDER BY usage_percentage DESC
       LIMIT 100
     `,
-      [billedMbPerSim, billedMbPerSim, billedMbPerSim, warningThreshold],
+      [warningThreshold],
     );
 
     console.log(
@@ -220,54 +205,49 @@ async function fetchUserAlertData(user) {
     );
     const [projectedAlerts] = await promisePool.query(
       `
-      SELECT 
-        latest.iccid,
-        latest.msisdn,
-        (CAST(latest.dataUsed AS DECIMAL(15,2)) / ?) as usage_percentage,
-        CAST(latest.dataUsed AS DECIMAL(15,2)) as used_this_month,
-        ? as capacity,
-        CASE 
-          WHEN (latest.dataUsed - first.dataUsed) > 0 
-          THEN ((latest.dataUsed - first.dataUsed) / ? * ? / NULLIF(?, 0))
-          ELSE 0 
-        END as projected_usage
-      FROM (
-        SELECT d1.iccid, d1.msisdn, d1.dataUsed, d1.dataSize
-        FROM ${TABLE_NAMES.data} d1
+      SELECT * FROM (
+        SELECT 
+          latest.iccid,
+          latest.msisdn,
+          (CAST(latest.dataUsed AS DECIMAL(15,2)) / NULLIF(CAST(latest.dataSize AS DECIMAL(15,2)), 0)) as usage_percentage,
+          CAST(latest.dataUsed AS DECIMAL(15,2)) as used_this_month,
+          CAST(latest.dataSize AS DECIMAL(15,2)) as capacity,
+          CASE 
+            WHEN (CAST(latest.dataUsed AS DECIMAL(15,2)) - CAST(first.dataUsed AS DECIMAL(15,2))) > 0 
+            THEN (CAST(first.dataUsed AS DECIMAL(15,2)) + (CAST(latest.dataUsed AS DECIMAL(15,2)) - CAST(first.dataUsed AS DECIMAL(15,2))) / ? * ?) / NULLIF(CAST(latest.dataSize AS DECIMAL(15,2)), 0)
+            ELSE CAST(latest.dataUsed AS DECIMAL(15,2)) / NULLIF(CAST(latest.dataSize AS DECIMAL(15,2)), 0)
+          END as projected_usage
+        FROM (
+          SELECT d1.iccid, d1.msisdn, d1.dataUsed, d1.dataSize
+          FROM ${TABLE_NAMES.data} d1
+          INNER JOIN (
+            SELECT iccid, MAX(id) as maxId
+            FROM ${TABLE_NAMES.data}
+            GROUP BY iccid
+          ) maxIds ON d1.id = maxIds.maxId
+        ) latest
         INNER JOIN (
-          SELECT iccid, MAX(id) as maxId
-          FROM ${TABLE_NAMES.data}
-          GROUP BY iccid
-        ) maxIds ON d1.id = maxIds.maxId
-      ) latest
-      INNER JOIN (
-        SELECT d2.iccid, d2.dataUsed
-        FROM ${TABLE_NAMES.data} d2
-        INNER JOIN (
-          SELECT iccid, MIN(id) as minId
-          FROM ${TABLE_NAMES.data}
-          WHERE createdTime >= ?
-          GROUP BY iccid
-        ) minIds ON d2.id = minIds.minId
-      ) first ON latest.iccid = first.iccid
-      INNER JOIN ${TABLE_NAMES.assets} ast ON latest.iccid = ast.iccid
-      WHERE (CAST(latest.dataUsed AS DECIMAL(15,2)) / ?) < ?
-        AND ((latest.dataUsed - first.dataUsed) / ? * ? / NULLIF(?, 0)) >= ?
+          SELECT d2.iccid, d2.dataUsed
+          FROM ${TABLE_NAMES.data} d2
+          INNER JOIN (
+            SELECT iccid, MIN(id) as minId
+            FROM ${TABLE_NAMES.data}
+            WHERE createdTime >= ?
+            GROUP BY iccid
+          ) minIds ON d2.id = minIds.minId
+        ) first ON latest.iccid = first.iccid
+        INNER JOIN ${TABLE_NAMES.assets} ast ON latest.iccid = ast.iccid
+      ) t
+      WHERE usage_percentage < ?
+        AND projected_usage >= ?
       ORDER BY projected_usage DESC
       LIMIT 100
     `,
       [
-        billedMbPerSim,
-        billedMbPerSim,
         currentDay,
         lastDayOfMonth,
-        billedMbPerSim,
         firstDayStr,
-        billedMbPerSim,
-        projectedThreshold,
-        currentDay,
-        lastDayOfMonth,
-        billedMbPerSim,
+        warningThreshold,
         projectedThreshold,
       ],
     );

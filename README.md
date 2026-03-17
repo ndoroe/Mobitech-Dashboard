@@ -6,11 +6,11 @@ Enterprise SIM card data-usage monitoring dashboard built with React + Material 
 
 | Layer | Technology |
 |-------|-----------|
-| Language | TypeScript |
-| Frontend | React 18, Material UI 5, MUI X-Charts, React Router, Formik + Yup |
+| Language | TypeScript 5 (strict mode) |
+| Frontend | React 18, Material UI v5, MUI X-Charts, React Router v6, AG Grid Community |
 | Backend | Node.js, Express, MySQL2 |
 | Auth | JWT, bcryptjs |
-| Email | Nodemailer (SMTP) |
+| Email | Nodemailer (SMTP), node-cron |
 | Icons | Tabler Icons |
 | Linting | ESLint, Prettier |
 | Process Mgr | PM2 |
@@ -62,9 +62,11 @@ sim-dashboard/
 
 ### Reports & Alerts
 - Custom report builder with date range, grouping (raw / daily / monthly), CSV export
+- Advanced dynamic report builder with field selection, compound filters, and sorting
 - Configurable warning & critical thresholds
-- Projected end-of-month usage alerts
-- Daily email alert reports (opt-in)
+- Current and projected end-of-month usage alerts (usage % calculated per-SIM against each SIM's own `dataSize` capacity)
+- Daily email alert reports (opt-in, scheduled via node-cron)
+- Non-blocking MUI Snackbar notifications for in-page errors (replaces browser dialogs)
 
 ### Authentication & User Management
 - JWT-based login with role support (admin / user)
@@ -154,53 +156,20 @@ npm run pm2:logs
 
 The Express server serves the React build in production mode, so only one process is needed.
 
-## API Endpoints
+## API Documentation
 
-### Public
+Full API documentation is available via Swagger UI at `/api-docs` when the server is running.
 
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | `/api/auth/register` | Register new user |
-| POST | `/api/auth/login` | Login |
-| POST | `/api/auth/logout` | Logout |
-| GET | `/api/auth/verify-email/:token` | Verify email |
-| POST | `/api/auth/resend-verification` | Resend verification email |
-| POST | `/api/auth/forgot-password` | Request password reset |
-| POST | `/api/auth/reset-password/:token` | Reset password |
-
-### Protected (requires auth + active status)
-
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/auth/me` | Current user info |
-| GET | `/api/dashboard/stats` | Dashboard statistics |
-| GET | `/api/dashboard/top-consumers` | Top consumers |
-| GET | `/api/sims` | List SIM cards (paginated) |
-| GET | `/api/sims/:iccid/history` | SIM usage history |
-| POST | `/api/reports/custom` | Generate custom report |
-| GET | `/api/reports/alerts` | Active alerts |
-| GET | `/api/preferences` | Get user preferences |
-| PUT | `/api/preferences` | Update user preferences |
-| GET | `/api/profile` | Get profile |
-| POST | `/api/profile/change-password` | Change password |
-| POST | `/api/profile/avatar` | Upload avatar |
-| DELETE | `/api/profile/avatar` | Delete avatar |
-
-### Admin Only
-
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/users` | List all users |
-| GET | `/api/users/pending` | Pending approval users |
-| POST | `/api/users/:id/approve` | Approve user |
-| POST | `/api/users/:id/reject` | Reject user |
-| PUT | `/api/users/:id/role` | Change user role |
-| DELETE | `/api/users/:id` | Delete user |
-| GET | `/api/notifications` | Get notifications |
-| GET | `/api/notifications/count` | Unread count |
-| POST | `/api/notifications/:id/read` | Mark read |
-| POST | `/api/notifications/read-all` | Mark all read |
-| DELETE | `/api/notifications/:id` | Delete notification |
+### Endpoint Groups
+- **Auth** — registration, login, logout, email verification, password reset
+- **Dashboard** — statistics, top consumers, monthly comparison
+- **SIM Cards** — paginated list (AG Grid compatible), per-SIM usage history
+- **Reports** — custom reports, advanced dynamic reports, current/projected alerts, monthly trends, report builder metadata
+- **Users** — user management (admin only)
+- **Notifications** — admin notification management
+- **Profile** — profile and avatar management
+- **Preferences** — per-user alert thresholds and email schedule settings
+- **Settings** — system-wide settings (admin writes, all users read)
 
 ## Environment Variables
 

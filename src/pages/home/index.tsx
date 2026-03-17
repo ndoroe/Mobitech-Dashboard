@@ -1,4 +1,4 @@
-import { Grid, Paper, Button, Box } from "@mui/material";
+import { Alert, Grid, Paper, Button, Box, Snackbar } from "@mui/material";
 import { amber, blue, green, red } from "@mui/material/colors";
 import {
   IconAlertTriangle,
@@ -38,6 +38,9 @@ const HomePage: FC = () => {
   const [consumerPeriod, setConsumerPeriod] = useState<"week" | "month">(
     "month",
   );
+
+  // Snackbar state
+  const [snackbar, setSnackbar] = useState<{open: boolean; message: string; severity: "success" | "error" | "info" | "warning"}>({open: false, message: "", severity: "error"});
 
   // Alert modal state
   const [showAlertModal, setShowAlertModal] = useState(false);
@@ -130,7 +133,7 @@ const HomePage: FC = () => {
       console.error("❌ Error fetching dashboard data:", error);
       console.error("Error message:", error.message);
       console.error("Error response:", error.response?.data);
-      alert("Failed to fetch data: " + (error.message || "Unknown error"));
+      setSnackbar({ open: true, message: "Failed to fetch data: " + (error.message || "Unknown error"), severity: "error" });
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -453,6 +456,11 @@ const HomePage: FC = () => {
           </Grid>
         </Grid>
       </PageLayout>
+      <Snackbar open={snackbar.open} autoHideDuration={5000} onClose={() => setSnackbar(s => ({...s, open: false}))} anchorOrigin={{ vertical: "top", horizontal: "right" }}>
+        <Alert onClose={() => setSnackbar(s => ({...s, open: false}))} severity={snackbar.severity} variant="filled" sx={{ width: "100%" }}>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </>
   );
 };

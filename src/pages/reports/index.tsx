@@ -1,4 +1,5 @@
 import {
+  Alert,
   Box,
   Button,
   Card,
@@ -9,6 +10,7 @@ import {
   MenuItem,
   Paper,
   Select,
+  Snackbar,
   TextField,
   Typography,
   Chip,
@@ -93,6 +95,9 @@ const ReportsPage: FC = () => {
   const [alertThreshold, setAlertThreshold] = useState(0.8);
   const [alerts, setAlerts] = useState<any[]>([]);
 
+  // Snackbar state
+  const [snackbar, setSnackbar] = useState<{open: boolean; message: string; severity: "success" | "error" | "info" | "warning"}>({open: false, message: "", severity: "error"});
+
   // AG Grid API refs for CSV export
   const basicGridApiRef = useRef<GridApi | null>(null);
   const dynamicGridApiRef = useRef<GridApi | null>(null);
@@ -157,7 +162,7 @@ const ReportsPage: FC = () => {
       setReportData(result.report);
     } catch (error: any) {
       console.error("Error generating dynamic report:", error);
-      alert(error.response?.data?.message || "Error generating report");
+      setSnackbar({ open: true, message: error.response?.data?.message || "Error generating report", severity: "error" });
     } finally {
       setLoading(false);
     }
@@ -318,7 +323,7 @@ const ReportsPage: FC = () => {
     );
   };
 
-  return (
+  return (<>
     <PageLayout title="Reports & Analytics">
       <Box sx={{ borderBottom: 1, borderColor: "divider", overflowX: "auto" }}>
         <Tabs
@@ -771,7 +776,12 @@ const ReportsPage: FC = () => {
         </Grid>
       </TabPanel>
     </PageLayout>
-  );
+    <Snackbar open={snackbar.open} autoHideDuration={5000} onClose={() => setSnackbar(s => ({...s, open: false}))} anchorOrigin={{ vertical: "top", horizontal: "right" }}>
+      <Alert onClose={() => setSnackbar(s => ({...s, open: false}))} severity={snackbar.severity} variant="filled" sx={{ width: "100%" }}>
+        {snackbar.message}
+      </Alert>
+    </Snackbar>
+  </>);
 };
 
 export default ReportsPage;

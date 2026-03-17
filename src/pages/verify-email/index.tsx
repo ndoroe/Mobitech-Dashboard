@@ -6,6 +6,7 @@ import {
   CircularProgress,
   Container,
   Paper,
+  Snackbar,
   Typography,
 } from "@mui/material";
 import { useSearchParams, Link as RouterLink } from "react-router-dom";
@@ -28,6 +29,7 @@ export function VerifyEmailPage() {
     message: "Verifying your email...",
   });
   const [resending, setResending] = useState(false);
+  const [snackbar, setSnackbar] = useState<{open: boolean; message: string; severity: "success" | "error" | "info" | "warning"}>({open: false, message: "", severity: "info"});
 
   useEffect(() => {
     if (!token) {
@@ -78,11 +80,12 @@ export function VerifyEmailPage() {
     // This would need to be enhanced to collect email
     setTimeout(() => {
       setResending(false);
-      alert("Please contact support to resend verification email.");
+      setSnackbar({ open: true, message: "Please contact support to resend verification email.", severity: "info" });
     }, 1000);
   };
 
   return (
+    <>
     <Container maxWidth="sm" sx={{ mt: 8 }}>
       <Paper elevation={3} sx={{ p: 4 }}>
         <Box
@@ -188,5 +191,11 @@ export function VerifyEmailPage() {
         </Box>
       </Paper>
     </Container>
+    <Snackbar open={snackbar.open} autoHideDuration={5000} onClose={() => setSnackbar(s => ({...s, open: false}))} anchorOrigin={{ vertical: "top", horizontal: "right" }}>
+      <Alert onClose={() => setSnackbar(s => ({...s, open: false}))} severity={snackbar.severity} variant="filled" sx={{ width: "100%" }}>
+        {snackbar.message}
+      </Alert>
+    </Snackbar>
+    </>
   );
 }

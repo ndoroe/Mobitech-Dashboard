@@ -499,7 +499,7 @@
  *   get:
  *     tags: [Dashboard]
  *     summary: Get dashboard statistics
- *     description: Returns total SIMs, monthly usage, pool utilization (based on billed_mb_per_sim × SIM count), and alert counts.
+ *     description: Returns total SIMs, monthly usage, pool utilization (total capacity = sum of per-SIM dataSize values; configurable via billed_mb_per_sim system setting), and alert counts.
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -656,6 +656,7 @@
  *   post:
  *     tags: [Reports]
  *     summary: Generate custom report
+ *     description: Returns SIM usage data grouped by day, month, or raw records. Limited to 1000 rows.
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -664,9 +665,50 @@
  *         application/json:
  *           schema:
  *             type: object
+ *             properties:
+ *               startDate:
+ *                 type: string
+ *                 format: date-time
+ *                 description: Filter records from this date/time
+ *               endDate:
+ *                 type: string
+ *                 format: date-time
+ *                 description: Filter records up to this date/time
+ *               iccid:
+ *                 type: string
+ *                 description: Filter by specific ICCID
+ *               groupBy:
+ *                 type: string
+ *                 enum: [none, day, month]
+ *                 default: day
+ *                 description: Aggregation period
+ *               columns:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 default: [iccid, msisdn, dataUsed, createdTime]
+ *                 description: Columns to include in raw (none) mode
  *     responses:
  *       200:
  *         description: Custom report data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     report:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                     filters:
+ *                       type: object
+ *                     count:
+ *                       type: integer
  *       401:
  *         description: Not authenticated
  */
@@ -676,7 +718,8 @@
  * /reports/dynamic:
  *   post:
  *     tags: [Reports]
- *     summary: Generate dynamic report with filters
+ *     summary: Generate dynamic report with advanced filters
+ *     description: Advanced report builder using the queryBuilder engine. Supports field selection, compound filters, grouping, and sorting. Use GET /reports/metadata for available fields and operators.
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -685,9 +728,70 @@
  *         application/json:
  *           schema:
  *             type: object
+ *             properties:
+ *               metrics:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 description: Fields to include (e.g. iccid, msisdn, dataUsed, usagePercent). Defaults to all fields.
+ *               filters:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     field:
+ *                       type: string
+ *                     operator:
+ *                       type: string
+ *                     value:
+ *                       type: string
+ *                 description: Filter conditions using queryBuilder operators
+ *               groupBy:
+ *                 type: string
+ *                 enum: [none, day, month]
+ *                 default: none
+ *               startDate:
+ *                 type: string
+ *                 format: date-time
+ *               endDate:
+ *                 type: string
+ *                 format: date-time
+ *               uniqueIccid:
+ *                 type: boolean
+ *                 default: false
+ *                 description: Return only the latest record per ICCID
+ *               sortBy:
+ *                 type: string
+ *                 description: Field to sort by
+ *               sortOrder:
+ *                 type: string
+ *                 enum: [asc, desc]
+ *                 default: desc
+ *               limit:
+ *                 type: integer
+ *                 default: 1000
+ *                 maximum: 1000
  *     responses:
  *       200:
  *         description: Dynamic report data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     report:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                     filters:
+ *                       type: object
+ *                     count:
+ *                       type: integer
  *       401:
  *         description: Not authenticated
  */
@@ -697,12 +801,56 @@
  * /reports/alerts:
  *   get:
  *     tags: [Reports]
- *     summary: Get current alerts
+ *     summary: Get current usage alerts
+ *     description: Returns SIMs whose current usage percentage (dataUsed / dataSize) meets or exceeds the threshold. Usage is calculated per-SIM based on each SIM's own dataSize capacity.
  *     security:
  *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: threshold
+ *         schema:
+ *           type: number
+ *           default: 0.8
+ *         description: Usage threshold ratio (0–1). e.g. 0.8 = 80%
  *     responses:
  *       200:
  *         description: Current alerts list
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     alerts:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           iccid:
+ *                             type: string
+ *                           msisdn:
+ *                             type: string
+ *                           dataUsed:
+ *                             type: string
+ *                             description: MB used
+ *                           dataSize:
+ *                             type: string
+ *                             description: SIM capacity in MB
+ *                           usagePercent:
+ *                             type: string
+ *                           lastConnection:
+ *                             type: string
+ *                             format: date-time
+ *                             nullable: true
+ *                     threshold:
+ *                       type: number
+ *                       description: Threshold expressed as a percentage (e.g. 80)
+ *                     count:
+ *                       type: integer
  *       401:
  *         description: Not authenticated
  */
@@ -712,13 +860,80 @@
  * /reports/projected-alerts:
  *   get:
  *     tags: [Reports]
- *     summary: Get projected alerts
- *     description: SIMs projected to exceed threshold by end of month
+ *     summary: Get projected end-of-month alerts
+ *     description: |
+ *       Returns SIMs whose projected end-of-month usage is expected to meet or exceed the threshold,
+ *       based on their current usage rate for the billing cycle. Usage percentage is calculated
+ *       per-SIM using each SIM's own dataSize capacity.
  *     security:
  *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: threshold
+ *         schema:
+ *           type: number
+ *           default: 0.8
+ *         description: Projected usage threshold ratio (0–1). e.g. 0.8 = 80%
  *     responses:
  *       200:
  *         description: Projected alerts list
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     alerts:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           iccid:
+ *                             type: string
+ *                           msisdn:
+ *                             type: string
+ *                           currentUsed:
+ *                             type: string
+ *                             description: Current MB used
+ *                           dataSize:
+ *                             type: string
+ *                             description: SIM capacity in MB
+ *                           usedThisMonth:
+ *                             type: string
+ *                             description: MB used since start of billing cycle
+ *                           projectedUsage:
+ *                             type: string
+ *                             description: Projected total MB by end of month
+ *                           projectedPercent:
+ *                             type: string
+ *                             description: Projected usage as a percentage
+ *                           currentPercent:
+ *                             type: string
+ *                             description: Current usage as a percentage
+ *                           lastConnection:
+ *                             type: string
+ *                             format: date-time
+ *                             nullable: true
+ *                     threshold:
+ *                       type: number
+ *                     count:
+ *                       type: integer
+ *                     billingCycle:
+ *                       type: object
+ *                       properties:
+ *                         daysElapsed:
+ *                           type: integer
+ *                         totalDays:
+ *                           type: integer
+ *                         daysRemaining:
+ *                           type: integer
+ *                         month:
+ *                           type: string
+ *                           format: date
  *       401:
  *         description: Not authenticated
  */
@@ -728,12 +943,54 @@
  * /reports/monthly-usage:
  *   get:
  *     tags: [Reports]
- *     summary: Get monthly usage report
+ *     summary: Get monthly usage history
+ *     description: Returns aggregated usage data per month for trend analysis. Data is converted to GB.
  *     security:
  *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: months
+ *         schema:
+ *           type: integer
+ *           default: 12
+ *         description: Number of past months to include
  *     responses:
  *       200:
  *         description: Monthly usage data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     monthlyUsage:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           month:
+ *                             type: string
+ *                             example: "2025-03"
+ *                           totalDataUsedGB:
+ *                             type: number
+ *                           totalDataSizeGB:
+ *                             type: number
+ *                           avgUsagePercent:
+ *                             type: string
+ *                           simCount:
+ *                             type: integer
+ *                           recordCount:
+ *                             type: integer
+ *                     period:
+ *                       type: string
+ *                       example: "12 months"
+ *                     unit:
+ *                       type: string
+ *                       example: "GB"
  *       401:
  *         description: Not authenticated
  */
@@ -743,13 +1000,52 @@
  * /reports/metadata:
  *   get:
  *     tags: [Reports]
- *     summary: Get report metadata
- *     description: Returns available columns, filters, and report types
+ *     summary: Get report builder metadata
+ *     description: Returns available fields, filter operators, and groupBy options for use with POST /reports/dynamic.
  *     security:
  *       - bearerAuth: []
  *     responses:
  *       200:
  *         description: Report metadata
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     fields:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           name:
+ *                             type: string
+ *                           type:
+ *                             type: string
+ *                           label:
+ *                             type: string
+ *                     operators:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           value:
+ *                             type: string
+ *                           label:
+ *                             type: string
+ *                     groupByOptions:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           value:
+ *                             type: string
+ *                           label:
+ *                             type: string
  *       401:
  *         description: Not authenticated
  */
