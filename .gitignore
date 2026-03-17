@@ -38,3 +38,4 @@ dummy-data.sh
 server/.email-sent-log.json
 public/uploads
 .github
+.github/
